@@ -1,24 +1,25 @@
-import pandas as pd
-import numpy as np
-import torch
-import matplotlib.pyplot as plt
+import datetime
 from pathlib import Path
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+import seaborn as sns
+from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay, classification_report
+from scipy.stats import wilcoxon
 from sklearn.linear_model import LinearRegression, LogisticRegression
 from sklearn.model_selection import train_test_split
-import seaborn as sns
 import scienceplots
-import sklearn.metrics
-from scipy.stats import wilcoxon
 
 plt.style.use(['science', 'notebook'])
-device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-if 'labels_df' not in locals() or 'features_df' not in locals():
-    labels_file_path = Path(r"c:/data/sampleinfo_SCANB_t.csv")
-    features_file_path = Path(r"c:\data\SCANB.csv")
+
+def load_data(data_folder=r"c:\data", labels_file_name=r"sampleinfo_SCANB_t.csv", features_file_name=r"SCANB.csv"):
+    labels_file_path = Path(data_folder, labels_file_name)
+    features_file_path = Path(data_folder, features_file_name)
 
     labels_df = pd.read_csv(labels_file_path)
     features_df = pd.read_csv(features_file_path)
+    return labels_df, features_df
 
 
 def wilcoxon_p_value(x, y):
@@ -26,12 +27,52 @@ def wilcoxon_p_value(x, y):
     return w_test.pvalue
 
 
-class FeatureSelectionTest:
-
+class Disjointification:
     def __init__(self, features_file_path=None, labels_file_path=None, labels_df=None, features_df=None,
                  select_num_features=None, select_num_instances=None, selected_labels=None, test_size=0.2,
-                 lin_regressor_label="Lympho", log_regressor_label="ER"):
+                 lin_regressor_label="Lympho", log_regressor_label="ER", model_save_folder=None):
 
+        self.model_save_folder = model_save_folder
+        self.correlation_with_previous_features = None
+        self.test_corr_matrix = None
+        self.df_candidate_vs_existing = None
+        self.candidate_feature_data = None
+        self.selected_feature_data = None
+        self.features_already_selected = None
+        self.candidate_feature = None
+        self.features_to_test_list = None
+        self.number_of_features_tested_log = None
+        self.number_of_features_tested_lin = None
+        self.features_not_yet_selected_log = None
+        self.features_not_yet_selected_lin = None
+        self.features_rejected_log = None
+        self.features_rejected_lin = None
+        self.features_already_selected_log = None
+        self.features_already_selected_lin = None
+        self.correlation_ranking_log = None
+        self.correlation_ranking_lin = None
+        self.correlation_matrix_log = None
+        self.correlation_matrix_lin = None
+        self.y_test_log = None
+        self.y_train_log = None
+        self.x_test_log = None
+        self.x_train_log = None
+        self.logistic_regressor = None
+        self.lin_score = None
+        self.y_pred_lin = None
+        self.y_test_lin = None
+        self.y_train_lin = None
+        self.x_test_lin = None
+        self.x_train_lin = None
+        self.linear_regressor = None
+        self.columns = None
+        self.num_instances = None
+        self.log_score = None
+        self.log_confusion_matrix = None
+        self.y_pred_log = None
+        self.num_labels = None
+        self.num_features = None
+        self.candidate_and_selected_features = None
         self.features_file_path = features_file_path
         self.labels_file_path = labels_file_path
         self.labels_df = labels_df
@@ -48,18 +89,29 @@ class FeatureSelectionTest:
         self.set_inputs()
 
     def set_inputs(self):
-
+        self.set_model_save_folder()
         self.set_dfs()
         self.set_wrapped_attributes()
         self.set_corr_matrices()
+        self.set_corr_matrices()
         self.set_feature_lists()
+
+    def set_model_save_folder(self, root="model", fmt="%m_%d_%Y__%H_%M_%S"):
+        if self.model_save_folder is None:
+            run_dt = datetime.datetime.strftime(datetime.datetime.now(), fmt)
+            if root is not None:
+                folder_path = Path(root, run_dt)
+            else:
+                folder_path = Path(run_dt)
+            self.model_save_folder = folder_path
+            self.model_save_folder.mkdir(parents=True, exist_ok=True)
 
     def set_dfs(self):
         if self.labels_df is None:
-            self.labels_df = pd.read_csv(self.labels_file_path)
+            self.labels_df = pd.read_csv(Path(self.labels_file_path))
 
         if self.features_df is None:
-            self.features_df = pd.read_csv(self.features_file_path)
+            self.features_df = pd.read_csv(Path(self.features_file_path))
 
         self.labels_df.drop(["Unnamed: 0"], errors='ignore', inplace=True, axis=1)
         self.features_df.drop(["Unnamed: 0"], errors='ignore', inplace=True, axis=1)
@@ -81,9 +133,6 @@ class FeatureSelectionTest:
         self.num_features = self.features_df.shape[1]
         self.num_labels = self.features_df.shape[0]
         self.num_instances = self.features_df.shape[0]
-
-    def remove_unnamed_cols():
-        self.features_df.drop
 
     def set_wrapped_attributes(self):
         self.set_shape()
@@ -113,9 +162,8 @@ class FeatureSelectionTest:
         if selected_features is not None:
             x = x[selected_features]
 
-        self.x_train_lin, self.x_test_lin, self.y_train_lin, self.y_test_lin = train_test_split(x, y,
-                                                                                                test_size=self.test_size,
-                                                                                                random_state=47)
+        self.x_train_lin, self.x_test_lin, self.y_train_lin, self.y_test_lin = \
+            train_test_split(x, y, test_size=self.test_size, random_state=47)
         self.linear_regressor.fit(self.x_train_lin, self.y_train_lin)
         self.y_pred_lin = self.linear_regressor.predict(self.x_test_lin)
         self.lin_score = self.linear_regressor.score(self.x_test_lin, self.y_test_lin)
@@ -131,33 +179,37 @@ class FeatureSelectionTest:
         if selected_features is not None:
             x = x[selected_features]
 
-        self.x_train_log, self.x_test_log, self.y_train_log, self.y_test_log = train_test_split(x, y,
-                                                                                                test_size=self.test_size,
-                                                                                                random_state=47)
+        self.x_train_log, self.x_test_log, self.y_train_log, self.y_test_log = \
+            train_test_split(x, y, test_size=self.test_size, random_state=47)
         self.logistic_regressor.fit(self.x_train_log, self.y_train_log)
         self.y_pred_log = self.logistic_regressor.predict(self.x_test_log)
         self.log_score = self.logistic_regressor.score(self.x_test_log, self.y_test_log)
-        self.log_confusion_matrix = sklearn.metrics.confusion_matrix(y_true=self.y_test_log, y_pred=self.y_pred_log,
-                                                                     normalize='all')
+        self.log_confusion_matrix = confusion_matrix(y_true=self.y_test_log, y_pred=self.y_pred_log,
+                                                     normalize='all')
 
     def show_linear_regressor(self, figsize=(6, 6), ax=None):
         if ax is None:
             fig, ax = plt.subplots(1, 1, figsize=figsize)
         sns.scatterplot(x=self.y_pred_lin, y=self.y_test_lin, ax=ax)
+
+        title = f"linear regressor using dataset of total \n {self.x_train_lin.shape} " + \
+                "train and {self.x_test_lin.shape} test. \nScore: {self.lin_score:.2f}"
         ax.set(
-            title=f"linear regressor using dataset of total \n {self.x_train_lin.shape} train and {self.x_test_lin.shape} test. \nScore: {self.lin_score:.2f}",
+            title=title,
             xlabel="y_test", ylabel="y_pred")
         ax.grid("minor")
 
     def show_log_regressor(self, figsize=(6, 6), ax=None, cmap="viridis"):
         if ax is None:
             fig, ax = plt.subplots(1, 1, figsize=figsize)
-        sklearn.metrics.ConfusionMatrixDisplay.from_predictions(self.y_test_log, self.y_pred_log, ax=ax, cmap=cmap)
+        ConfusionMatrixDisplay.from_predictions(self.y_test_log, self.y_pred_log, ax=ax, cmap=cmap)
+        title = f"log regressor using dataset of total \n {self.x_train_log.shape} " + \
+                "train and {self.x_test_log.shape} test. \nScore: {self.log_score:.2f}"
         ax.set(
-            title=f"log regressor using dataset of total \n {self.x_train_log.shape} train and {self.x_test_log.shape} test. \nScore: {self.log_score:.2f}")
+            title=title)
 
-    def show(self, fig=None, figsize=(12, 6)):
-        if fig is None:
+    def show(self, fig=None, axs=None, figsize=(12, 6)):
+        if fig is None or axs is None:
             fig, axs = plt.subplots(1, 2, figsize=figsize)
         ax = axs.flatten()[0]
         ax.grid("minor")
@@ -166,10 +218,7 @@ class FeatureSelectionTest:
         self.show_log_regressor(ax=ax, figsize=(figsize[0] // 2, figsize[1]))
 
     def show_classification_report(self):
-        print(sklearn.metrics.classification_report(self.y_test_log, self.y_pred_log))
-
-    def show_regression_report(self):
-        print(sklearn.metrics.reg)
+        print(classification_report(self.y_test_log, self.y_pred_log))
 
     def set_corr_matrices(self):
         self.correlation_matrix_lin = self.features_and_labels_df.drop(columns=self.log_regressor_label).corr().drop(
@@ -191,8 +240,8 @@ class FeatureSelectionTest:
         self.number_of_features_tested_lin = 0
         self.number_of_features_tested_log = 0
 
-    def run_iterative_feature_selection(self, mode, num_iterations=None, correlation_threshold=0.1,
-                                        min_num_of_features=None, debug_print=False, alert_selection=False):
+    def run(self, mode, num_iterations=None, correlation_threshold=0.1,
+            min_num_of_features=np.inf, debug_print=False, alert_selection=False):
 
         if num_iterations is None:
             num_iterations = self.num_features
@@ -206,8 +255,7 @@ class FeatureSelectionTest:
         if debug_print:
             print(f"features_to_test_list {self.features_to_test_list}")
 
-        for iter in range(num_iterations):
-
+        for iter_num in range(num_iterations):
             if debug_print:
                 print(f"features to test list - {self.features_to_test_list}")
             if mode == 'lin':
@@ -227,7 +275,7 @@ class FeatureSelectionTest:
                     self.features_already_selected_lin.append(self.candidate_feature)
                 if mode == 'log':
                     self.features_already_selected_log.append(self.candidate_feature)
-            ## Iterate
+            # Iterate
             else:
                 if mode == 'lin':
                     self.selected_feature_data = self.features_df[self.features_already_selected_lin]
@@ -251,13 +299,13 @@ class FeatureSelectionTest:
                 if mode == 'log':
                     self.test_corr_matrix = self.df_candidate_vs_existing.corr(method=wilcoxon_p_value)
 
-                self.correlation_with_prevs_features = self.test_corr_matrix[self.candidate_feature].drop(
+                self.correlation_with_previous_features = self.test_corr_matrix[self.candidate_feature].drop(
                     self.candidate_feature)
 
                 if debug_print:
-                    print(f"correaltion with prevs: {self.correlation_with_prevs_features}")
+                    print(f"correlation with previous: {self.correlation_with_previous_features}")
 
-                if self.correlation_with_prevs_features.abs().max() <= correlation_threshold:
+                if self.correlation_with_previous_features.abs().max() <= correlation_threshold:
                     if alert_selection:
                         print(f"found a new feature to use!")
 
@@ -265,6 +313,10 @@ class FeatureSelectionTest:
             if mode == 'lin':
                 self.features_already_selected_lin.append(self.candidate_feature)
                 self.number_of_features_tested_lin = self.number_of_features_tested_lin + 1
+                if len(self.features_already_selected_lin) >= min_num_of_features:
+                    break
             if mode == 'log':
                 self.features_already_selected_log.append(self.candidate_feature)
                 self.number_of_features_tested_log = self.number_of_features_tested_log + 1
+                if len(self.features_already_selected_log) >= min_num_of_features:
+                    break

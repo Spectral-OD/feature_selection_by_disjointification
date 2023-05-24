@@ -1,2 +1,5 @@
 
 .idea/*
+*.pyc
+.ipynb_checkpoints/02_Disjointification_Setup-checkpoint
+.ipynb_checkpoints/02_Initital Regressor Setup-checkpoint.ipynb

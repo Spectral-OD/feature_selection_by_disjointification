@@ -1,0 +1,118 @@
+{
+ "cells": [
+  {
+   "cell_type": "code",
+   "execution_count": 1,
+   "id": "07ee51ee-aeb8-4e2f-8436-c9ff42ca7cbd",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "import disjointification\n",
+    "from disjointification import load_data, Disjointification\n",
+    "from pathlib import Path\n",
+    "\n",
+    "if 'labels_df' not in locals() or 'features_df' not in locals():\n",
+    "    labels_df, features_df = load_data()"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 2,
+   "id": "eb27955b-9386-4af8-9476-80e7387fb7ac",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "select_num_features = 100\n",
+    "select_num_instances = 3000\n",
+    "selected_labels = [\"ER\", \"Lympho\"]\n",
+    "correlation_threshold = 0.2\n",
+    "alert_selection = True\n",
+    "debug_print = False\n",
+    "\n",
+    "test = Disjointification(features_file_path=None, labels_file_path=None, features_df=features_df, labels_df=labels_df, select_num_features=select_num_features, select_num_instances=select_num_instances, selected_labels=selected_labels)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 3,
+   "id": "a2de50e2-9632-432e-9def-418d53e3e634",
+   "metadata": {},
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "found a new feature to use!\n",
+      "found a new feature to use!\n",
+      "found a new feature to use!\n"
+     ]
+    }
+   ],
+   "source": [
+    "test.run(mode='lin', num_iterations=5, correlation_threshold = correlation_threshold, alert_selection=alert_selection, debug_print=debug_print)\n",
+    "# TODOS\n",
+    "# SOLVE INDEXING ISSUE >3000\n",
+    "# VISUALIZE\n",
+    "# RANDOMFOR\n",
+    "# SAVE MODEL\n",
+    "# LOAD MODEL"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "b54af087-a42d-4552-9fc4-93083125248f",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "test.run_linear_regression()\n",
+    "test.run_log_regression()\n",
+    "test.show()"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "7a9eb3c5-b8e2-45f1-9a0a-8b8952aac4b9",
+   "metadata": {},
+   "source": [
+    "## Meeting 24/05\n",
+    "\n",
+    "- Disjointification should be done - \n",
+    "- RF + Lasso benchmark\n",
+    "- Let's try OOB solutions - genetic?\n",
+    "- Propose other methods ? \n",
+    "- RFE\n",
+    "- Can test another method that'll reduce to 500 and then do the same\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "d13137dd-1865-4368-9e92-f58eb18f4b38",
+   "metadata": {},
+   "outputs": [],
+   "source": []
+  }
+ ],
+ "metadata": {
+  "kernelspec": {
+   "display_name": "Python 3 (ipykernel)",
+   "language": "python",
+   "name": "python3"
+  },
+  "language_info": {
+   "codemirror_mode": {
+    "name": "ipython",
+    "version": 3
+   },
+   "file_extension": ".py",
+   "mimetype": "text/x-python",
+   "name": "python",
+   "nbconvert_exporter": "python",
+   "pygments_lexer": "ipython3",
+   "version": "3.10.5"
+  }
+ },
+ "nbformat": 4,
+ "nbformat_minor": 5
+}
