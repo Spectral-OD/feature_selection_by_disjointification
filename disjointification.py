@@ -1,4 +1,3 @@
-import datetime
 import pickle
 from pathlib import Path
 import matplotlib.pyplot as plt
@@ -43,6 +42,10 @@ class Disjointification:
                  lin_regressor_label="Lympho", log_regressor_label="ER", model_save_folder=None, do_autosave=True,
                  max_num_iterations=None):
 
+        self.regression_sweep_y_lin = None
+        self.regression_sweep_x_log = None
+        self.regression_sweep_y_log = None
+        self.regression_sweep_x_lin = None
         self.correlation_vals_temp = None
         self.features_list_temp = None
         self.drop_label_temp = None
@@ -114,13 +117,11 @@ class Disjointification:
         self.set_feature_lists()
         self.set_label_correlation_lists()
 
-    def run(self, persistent=True):
-        # self.run_correlation_matrix_calculation(persistent=persistent)
+    def run(self, show=False):
         self.run_disjointification()
         self.run_regressions()
-
-    # def run_correlation_matrix_calculation(self, mode=None, persistent=True):
-    #     self.set_label_correlation_lists(mode=mode, persistent=persistent)
+        if show:
+            self.show()
 
     def set_model_save_folder(self, root="model", fmt="%m_%d_%Y__%H_%M_%S"):
         if self.model_save_folder is None:
@@ -143,9 +144,6 @@ class Disjointification:
         self.features_df.drop(["Unnamed: 0"], errors='ignore', inplace=True, axis=1)
 
         if self.select_num_instances is not None:
-            # instances_to_keep = np.arange(self.select_num_instances)
-            # self.labels_df = self.labels_df[instances_to_keep]
-            # self.features_df = self.features_df[instances_to_keep]
             self.labels_df = self.labels_df[0:self.select_num_instances]
             self.features_df = self.features_df[0:self.select_num_instances]
         if self.select_num_features is not None:
@@ -189,6 +187,36 @@ class Disjointification:
                 self.run_linear_regression(selected_features=self.features_selected_in_disjointification_lin)
             if mode == 'log':
                 self.run_logistic_regression(selected_features=self.features_selected_in_disjointification_log)
+
+    def sweep_regression(self, mode=None, selected_feature_num=None):
+        if mode is None:
+            self.sweep_regression(mode='lin', selected_feature_num=selected_feature_num)
+            self.sweep_regression(mode='log', selected_feature_num=selected_feature_num)
+        else:
+            total_features = None
+            if selected_feature_num is None:
+                if mode == 'lin':
+                    total_features = len(self.features_selected_in_disjointification_lin)
+                if mode == 'log':
+                    total_features = len(self.features_selected_in_disjointification_log)
+            step = np.sqrt(total_features).astype(int)
+            num_selected_features_list = np.linspace(1, stop=total_features, num=step, endpoint=True).astype(int)
+            score = None
+            scores = []
+            for selected_features in num_selected_features_list:
+                self.run_regressions(mode=mode, selected_features=selected_features)
+                if mode == 'lin':
+                    score = self.lin_score
+                if mode == 'log':
+                    score = self.log_score
+                scores.append(score)
+
+            if mode == 'lin':
+                self.regression_sweep_x_lin = num_selected_features_list
+                self.regression_sweep_y_lin = scores
+            if mode == 'log':
+                self.regression_sweep_x_log = num_selected_features_list
+                self.regression_sweep_y_log = scores
 
     def run_linear_regression(self, selected_features=None):
         self.linear_regressor = LinearRegression()
@@ -242,6 +270,23 @@ class Disjointification:
         if printout:
             print(f"saved model to {file.resolve()}")
 
+    def show_regressor_sweep(self, figsize=(12, 6), axs=None):
+        if axs is None:
+            fig, axs = plt.subplots(1, 2, figsize=figsize)
+        ax = axs[0]
+        if np.all([self.regression_sweep_x_lin is not None, self.regression_sweep_y_lin is not None]):
+            sns.scatterplot(x=self.regression_sweep_x_lin, y=self.regression_sweep_y_lin, ax=ax)
+        title = f"linear regressor number of features vs. score"
+        ax.set(title=title, xlabel="num features", ylabel="R2 Score")
+        ax = axs[1]
+        if np.all([self.regression_sweep_x_log is not None, self.regression_sweep_y_log is not None]):
+            sns.scatterplot(x=self.regression_sweep_x_log, y=self.regression_sweep_y_log, ax=ax)
+        title = f"logistic regressor number of features vs. score"
+        ax.set(title=title, xlabel="num features", ylabel="R2 Score")
+
+        for ax in axs.flatten():
+            ax.grid("minor")
+
     def show_linear_regressor(self, figsize=(6, 6), ax=None):
         if ax is None:
             fig, ax = plt.subplots(1, 1, figsize=figsize)
@@ -249,9 +294,7 @@ class Disjointification:
 
         title = f"linear regressor using dataset of total \n {self.x_train_lin.shape} " + \
                 "train and {self.x_test_lin.shape} test. \nScore: {self.lin_score:.2f}"
-        ax.set(
-            title=title,
-            xlabel="y_test", ylabel="y_pred")
+        ax.set(title=title, xlabel="y_test", ylabel="y_pred")
         ax.grid("minor")
 
     def show_log_regressor(self, figsize=(6, 6), ax=None, cmap="viridis"):
@@ -263,7 +306,7 @@ class Disjointification:
         ax.set(
             title=title)
 
-    def show(self, fig=None, axs=None, figsize=(12, 6)):
+    def show(self, fig=None, axs=None, figsize=(12, 6), report=False):
         if fig is None or axs is None:
             fig, axs = plt.subplots(1, 2, figsize=figsize)
         ax = axs.flatten()[0]
@@ -271,12 +314,13 @@ class Disjointification:
         self.show_linear_regressor(ax=ax, figsize=(figsize[0] // 2, figsize[1]))
         ax = axs.flatten()[1]
         self.show_log_regressor(ax=ax, figsize=(figsize[0] // 2, figsize[1]))
-        self.show_classification_report()
+        if report:
+            self.show_classification_report()
 
     def show_classification_report(self):
         print(classification_report(self.y_test_log, self.y_pred_log))
 
-    def set_label_correlation_lists(self, persistent=True):
+    def set_label_correlation_lists(self):
         source = self.features_df
 
         method = 'pearson'
@@ -293,7 +337,7 @@ class Disjointification:
 
         correlation_vals = source.corrwith(target, method=method)
         ranking = correlation_vals.abs().sort_values(ascending=False)
-        self.correlation_ranking_log = self.features_df.corrwith(self.labels_df[self.log_regressor_label])
+        self.correlation_ranking_log = ranking
         self.autosave()
 
     def set_feature_lists(self):
