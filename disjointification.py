@@ -34,7 +34,6 @@ def create_test(*args, file=None, **kwargs):
 def from_file(file):
     with open(file, 'rb') as f:
         loaded = pickle.load(f)
-        loaded.set_inputs()
     return loaded
 
 
@@ -44,6 +43,8 @@ class Disjointification:
                  lin_regressor_label="Lympho", log_regressor_label="ER", model_save_folder=None, do_autosave=True,
                  max_num_iterations=None):
 
+        self.correlation_vals_temp = None
+        self.features_list_temp = None
         self.drop_label_temp = None
         self.focus_label_temp = None
         self.selected_labels_temp = None
@@ -104,21 +105,22 @@ class Disjointification:
         self.test_size = test_size
         self.log_regressor_label = log_regressor_label
         self.lin_regressor_label = lin_regressor_label
-        self.set_inputs()
+        self.set()
 
-    def set_inputs(self):
+    def set(self):
         self.set_model_save_folder()
         self.set_dfs()
         self.set_wrapped_attributes()
         self.set_feature_lists()
+        self.set_label_correlation_lists()
 
     def run(self, persistent=True):
-        self.run_correlation_matrix_calculation(persistent=persistent)
+        # self.run_correlation_matrix_calculation(persistent=persistent)
         self.run_disjointification()
         self.run_regressions()
 
-    def run_correlation_matrix_calculation(self, mode=None, persistent=True):
-        self.set_feature_corr_matrix(mode=mode, persistent=persistent)
+    # def run_correlation_matrix_calculation(self, mode=None, persistent=True):
+    #     self.set_label_correlation_lists(mode=mode, persistent=persistent)
 
     def set_model_save_folder(self, root="model", fmt="%m_%d_%Y__%H_%M_%S"):
         if self.model_save_folder is None:
@@ -178,10 +180,10 @@ class Disjointification:
     def tail(self, n=5):
         return self.features_and_labels_df.tail(n)
 
-    def run_regressions(self, mode=None):
+    def run_regressions(self, mode=None, selected_features=None):
         if mode is None:
-            self.run_regressions(mode='lin')
-            self.run_regressions(mode='log')
+            self.run_regressions(mode='lin', selected_features=selected_features)
+            self.run_regressions(mode='log', selected_features=selected_features)
         else:
             if mode == 'lin':
                 self.run_linear_regression(selected_features=self.features_selected_in_disjointification_lin)
@@ -223,10 +225,10 @@ class Disjointification:
         self.log_confusion_matrix = confusion_matrix(y_true=self.y_test_log, y_pred=self.y_pred_log,
                                                      normalize='all')
 
-    def autosave(self):
+    def autosave(self, printout=False):
         if self.do_autosave:
-            print(f"{utils.get_dt_in_fmt()} autosave function called by {__name__}")
-            self.save_model()
+            # print(f"{utils.get_dt_in_fmt()} autosave function called by {__name__}")
+            self.save_model(printout=printout)
 
     def save_model(self, printout=True):
         if printout:
@@ -269,48 +271,30 @@ class Disjointification:
         self.show_linear_regressor(ax=ax, figsize=(figsize[0] // 2, figsize[1]))
         ax = axs.flatten()[1]
         self.show_log_regressor(ax=ax, figsize=(figsize[0] // 2, figsize[1]))
+        self.show_classification_report()
 
     def show_classification_report(self):
         print(classification_report(self.y_test_log, self.y_pred_log))
 
-    def set_feature_corr_matrix(self, mode=None, persistent=True):
+    def set_label_correlation_lists(self, persistent=True):
+        source = self.features_df
 
-        if mode is None:
-            if not persistent or (self.correlation_matrix_lin is None):
-                self.set_feature_corr_matrix(mode='lin', persistent=persistent)
-            if not persistent or (self.correlation_matrix_log is None):
-                self.set_feature_corr_matrix(mode='log', persistent=persistent)
+        method = 'pearson'
+        label = self.lin_regressor_label
+        target = self.labels_df[label]
 
-        else:
+        correlation_vals = source.corrwith(target, method=method)
+        ranking = correlation_vals.abs().sort_values(ascending=False)
+        self.correlation_ranking_lin = ranking
 
-            target = self.features_and_labels_df.copy()
-            if mode == 'lin':
-                drop_col = self.log_regressor_label
+        method = utils.wilcoxon_p_value
+        label = self.log_regressor_label
+        target = self.labels_df[label]
 
-                method = 'pearson'
-                print(f"calculating correlation matrix of linear regressor")
-                # self.correlation_matrix_lin = target.copy().corr().drop(drop_col)
-            if mode == 'log':
-                drop_col = self.lin_regressor_label
-                method = utils.wilcoxon_p_value
-                print(f"calculating correlation matrix of logistic regressor")
-                # self.correlation_matrix_log = self.correlation_matrix_log = \
-                #     target.copy().corr(method=utils.wilcoxon_p_value).drop(drop_col)
-
-            self.corr_matrix_temp = target.copy().drop(columns=drop_col).corr(method=method)
-            self.autosave()
-
-            if mode == 'lin':
-                self.correlation_matrix_lin = self.corr_matrix_temp
-                print(f"calculating correlation ranking of linear regressor")
-                self.correlation_ranking_lin = self.correlation_matrix_lin[self.lin_regressor_label].sort_values(
-                    ascending=False)
-            if mode == 'log':
-                self.correlation_matrix_log = self.corr_matrix_temp
-                print(f"calculating correlation ranking of logistic regressor")
-                self.correlation_ranking_log = self.correlation_matrix_log[self.log_regressor_label].sort_values(
-                    ascending=False)
-            self.autosave()
+        correlation_vals = source.corrwith(target, method=method)
+        ranking = correlation_vals.abs().sort_values(ascending=False)
+        self.correlation_ranking_log = self.features_df.corrwith(self.labels_df[self.log_regressor_label])
+        self.autosave()
 
     def set_feature_lists(self):
         self.features_selected_in_disjointification_lin = []
@@ -341,109 +325,39 @@ class Disjointification:
                 num_iterations = self.max_num_iterations
 
             if mode == 'lin':
-                self.focus_label_temp = self.lin_regressor_label
-                self.drop_label_temp = self.log_regressor_label
-                self.corr_matrix_temp = self.correlation_matrix_lin.copy()
-
+                if debug_print:
+                    print(f'self.correlation_ranking_lin: {self.correlation_ranking_lin}')
+                self.features_list_temp = self.correlation_ranking_lin.copy()
             if mode == 'log':
-                self.drop_label_temp = self.lin_regressor_label
-                self.focus_label_temp = self.log_regressor_label
-                self.corr_matrix_temp = self.correlation_matrix_log.copy()
+                if debug_print:
+                    print(f'self.correlation_ranking_log: {self.correlation_ranking_log}')
+                self.features_list_temp = self.correlation_ranking_log.copy()
 
-            target = self.corr_matrix_temp[self.focus_label_temp].drop(self.drop_label_temp, errors='ignore')
-            self.features_to_test_series_temp = target.abs().sort_values(ascending=False)
-
-            if debug_print:
-                print(f"features_to_test_series_temp {self.features_to_test_series_temp}")
-
-            iter_num = 0
-            for test_feature in self.features_to_test_series_temp.index:
-
-                if iter_num >= num_iterations:
-                    break
-
-                if self.features_selected_in_disjointification_temp is None:
-                    self.features_selected_in_disjointification_temp = [test_feature]
-
-                if len(self.features_selected_in_disjointification_temp) == 0:
-                    self.features_selected_in_disjointification_temp.append(test_feature)
+            for (feature_num, candidate_feature) in enumerate(self.features_list_temp.index):
+                if debug_print:
+                    print(f"candidate_feature: {candidate_feature}")
+                if self.features_selected_in_disjointification_temp is None \
+                        or len(self.features_selected_in_disjointification_temp) == 0:
+                    self.features_selected_in_disjointification_temp = [self.features_list_temp.index[0]]
+                    continue
 
                 if len(self.features_selected_in_disjointification_temp) >= min_num_of_features:
                     break
+                if feature_num >= num_iterations:
+                    break
 
-                if target
-
-
-                iter_num = iter_num + 1
+                self.autosave()
+                self.corr_matrix_temp = self.features_df[self.features_selected_in_disjointification_temp]
+                self.candidate_feature_data_temp = self.features_df[candidate_feature]
+                self.correlation_vals_temp = self.corr_matrix_temp.corrwith(self.candidate_feature_data_temp)
+                if self.correlation_vals_temp.abs().max() <= correlation_threshold:
+                    if alert_selection:
+                        print(f"candidate_feature: {candidate_feature} was selected!")
+                    self.features_selected_in_disjointification_temp.append(candidate_feature)
 
             if mode == 'lin':
                 self.features_selected_in_disjointification_lin = self.features_selected_in_disjointification_temp
             if mode == 'log':
                 self.features_selected_in_disjointification_log = self.features_selected_in_disjointification_temp
 
-
-            for iter_num in range(num_iterations):
-                if mode == 'lin':
-                    self.candidate_feature = str(self.features_to_test_series_temp[self.number_of_features_tested_lin])
-                    self.features_selected_in_disjointification_temp = self.features_selected_in_disjointification_lin
-                if mode == 'log':
-                    self.candidate_feature = str(self.features_to_test_series_temp[self.number_of_features_tested_log])
-                    self.features_selected_in_disjointification_temp = self.features_selected_in_disjointification_log
-
-                if debug_print:
-                    print(f"self.candidate_feature: {self.candidate_feature}")
-
-                if (self.features_selected_in_disjointification_temp is None) or (len(self.features_selected_in_disjointification_temp) == 0):
-                    # self.features_already_selected.append(self.candidate_feature)
-
-                    if mode == 'lin':
-                        self.features_selected_in_disjointification_lin.append(self.candidate_feature)
-                    if mode == 'log':
-                        self.features_selected_in_disjointification_log.append(self.candidate_feature)
-                # Iterate
-                else:
-
-                    if mode == 'lin':
-                        self.selected_feature_data_temp = self.features_df[self.features_selected_in_disjointification_lin]
-                    if mode == 'log':
-                        self.selected_feature_data_temp = self.features_df[self.features_selected_in_disjointification_log]
-
-                    self.candidate_feature_data_temp = self.features_df[[self.candidate_feature]]
-
-                    if debug_print:
-                        print(f"self.features_already_selected_temp for mode {mode}: {self.selected_feature_data_temp}")
-                        print(f"candidate_feature_data_temp : {self.candidate_feature_data_temp}")
-                        print(f"selected_feature_data_temp: {self.selected_feature_data_temp}")
-
-                    # self.df_candidate_vs_existing = self.candidate_feature_data.join(self.selected_feature_data)
-                    # # self.df_candidate_vs_existing = pd.concat([self.candidate_feature_data,self.selected_feature_data])
-                    self.candidate_and_selected_features_temp = list(self.features_selected_in_disjointification_temp) + [
-                        self.candidate_feature]
-                    self.df_candidate_vs_existing_temp = self.features_df[self.candidate_and_selected_features_temp]
-                    self.test_corr_matrix_temp = self.df_candidate_vs_existing_temp.corr()
-                    self.correlation_with_previous_features_temp = \
-                        self.test_corr_matrix_temp[self.candidate_feature].drop(self.candidate_feature)
-
-                    if debug_print:
-                        print(f"correlation with previous: {self.correlation_with_previous_features_temp}")
-
-                    if self.correlation_with_previous_features_temp.abs().max() <= correlation_threshold:
-                        if alert_selection:
-                            print(f"found a new feature to use!")
-                        if mode == 'lin':
-                            self.features_selected_in_disjointification_lin.append(self.candidate_feature)
-                            self.features_selected_in_disjointification_lin = list(set(self.features_selected_in_disjointification_lin))
-                            self.number_of_features_tested_lin = self.number_of_features_tested_lin + 1
-                            if len(self.features_selected_in_disjointification_lin) >= min_num_of_features:
-                                break
-                        if mode == 'log':
-                            self.features_selected_in_disjointification_log.append(self.candidate_feature)
-                            self.features_selected_in_disjointification_log = list(set(self.features_selected_in_disjointification_log))
-                            self.number_of_features_tested_log = self.number_of_features_tested_log + 1
-                            if len(self.features_selected_in_disjointification_log) >= min_num_of_features:
-                                break
-
-                    self.autosave()
             self.save_model()
-
-
