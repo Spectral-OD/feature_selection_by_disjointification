@@ -75,8 +75,6 @@ class Disjointification:
         self.features_selected_in_disjointification_lin = None
         self.correlation_ranking_log = None
         self.correlation_ranking_lin = None
-        self.correlation_matrix_log = None
-        self.correlation_matrix_lin = None
         self.y_test_log = None
         self.y_train_log = None
         self.x_test_log = None
@@ -154,7 +152,10 @@ class Disjointification:
         self.selected_labels_temp = [self.lin_regressor_label, self.log_regressor_label]
         self.labels_df = self.labels_df[self.selected_labels_temp]
 
-        self.features_and_labels_df = self.features_df.join(self.labels_df)
+        self.features_and_labels_df = self.features_df.join(self.labels_df).dropna()
+        label_col = [self.lin_regressor_label, self.log_regressor_label]
+        self.features_df = self.features_and_labels_df.drop(columns=label_col)
+        self.labels_df = self.features_and_labels_df[label_col]
         self.num_features = self.features_df.shape[1]
         self.num_labels = self.features_df.shape[0]
         self.num_instances = self.features_df.shape[0]
@@ -229,7 +230,7 @@ class Disjointification:
             x = x[selected_features]
 
         self.x_train_lin, self.x_test_lin, self.y_train_lin, self.y_test_lin = \
-            train_test_split(x, y, test_size=self.test_size, random_state=47)
+            train_test_split(x.dropna(), y.dropna(), test_size=self.test_size, random_state=47)
         self.linear_regressor.fit(self.x_train_lin, self.y_train_lin)
         self.y_pred_lin = self.linear_regressor.predict(self.x_test_lin)
         self.lin_score = self.linear_regressor.score(self.x_test_lin, self.y_test_lin)
