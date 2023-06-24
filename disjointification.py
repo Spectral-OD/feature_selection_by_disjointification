@@ -1,26 +1,31 @@
 import pickle
-from pathlib import Path
 import matplotlib.pyplot as plt
 import numpy as np
-import pandas as pd
 import seaborn as sns
 from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay, classification_report
 from sklearn.linear_model import LinearRegression, LogisticRegression
 from sklearn.model_selection import train_test_split
 from utils import utils
+from pathlib import Path
+import pandas as pd
 import scienceplots
 
 plt.style.use(['science', 'notebook'])
 
 
 def load_gene_expression_data(data_folder=r"c:\data", labels_file_name=r"sampleinfo_SCANB_t.csv",
-                              features_file_name=r"SCANB.csv"):
+                              features_file_name=r"SCANB_t.csv", labels_idx_column="samplename"):
     labels_file_path = Path(data_folder, labels_file_name)
     features_file_path = Path(data_folder, features_file_name)
 
-    labels_df = pd.read_csv(labels_file_path)
+    # features_df = pd.read_csv(features_file_path, index_col=labels_idx_column)
+    # labels_df = pd.read_csv(labels_file_path, index_col=labels_idx_column)
+
     features_df = pd.read_csv(features_file_path)
-    return labels_df, features_df
+    labels_df = pd.read_csv(labels_file_path)
+
+    out_dict = {"labels": labels_df, "features": features_df}
+    return out_dict
 
 
 def create_test(*args, file=None, **kwargs):
@@ -39,9 +44,13 @@ def from_file(file):
 class Disjointification:
     def __init__(self, features_file_path=None, labels_file_path=None, labels_df=None, features_df=None,
                  select_num_features=None, select_num_instances=None, test_size=0.2,
-                 lin_regressor_label="Lympho", log_regressor_label="ER", model_save_folder=None, do_autosave=True,
-                 max_num_iterations=None):
+                 lin_regressor_label="Lympho", log_regressor_label="ER", do_autosave=True,
+                 max_num_iterations=None, root_save_folder=None, do_set=True, alert_selection=False):
 
+        self.alert_selection = alert_selection
+        self.last_save_time = None
+        self.root_save_folder = root_save_folder
+        self.description = None
         self.regression_sweep_y_lin = None
         self.regression_sweep_x_log = None
         self.regression_sweep_y_log = None
@@ -56,7 +65,7 @@ class Disjointification:
         self.max_num_iterations = max_num_iterations
         self.last_save_point_file = None
         self.do_autosave = do_autosave
-        self.model_save_folder = model_save_folder
+        self.model_save_folder = None
         self.correlation_with_previous_features_temp = None
         self.test_corr_matrix_temp = None
         self.df_candidate_vs_existing_temp = None
@@ -106,7 +115,8 @@ class Disjointification:
         self.test_size = test_size
         self.log_regressor_label = log_regressor_label
         self.lin_regressor_label = lin_regressor_label
-        self.set()
+        if do_set:
+            self.set()
 
     def set(self):
         self.set_model_save_folder()
@@ -114,45 +124,67 @@ class Disjointification:
         self.set_wrapped_attributes()
         self.set_feature_lists()
         self.set_label_correlation_lists()
+        self.autosave()
+
+    def describe(self):
+        title = ("Disjointification Test Description")
+        self.description = []
+        self.description.append(title)
+        self.description.append(f"features data: {self.features_df.shape}")
+        self.description.append(f"labels data: {self.labels_df.shape}")
+        self.description.append(f"last save point: {self.last_save_point_file}")
+        p = [print(x) for x in self.description]
+        # pprint(self.description)
 
     def run(self, show=False):
-        self.run_disjointification()
+        self.run_disjointification(alert_selection=self.alert_selection)
         self.run_regressions()
         if show:
             self.show()
 
-    def set_model_save_folder(self, root="model", fmt="%m_%d_%Y__%H_%M_%S"):
+    def set_model_save_folder(self, root=None, fmt="%m_%d_%Y__%H_%M_%S"):
+        this_run_dt = utils.get_dt_in_fmt(fmt=fmt)
         if self.model_save_folder is None:
-            run_dt = utils.get_dt_in_fmt(fmt=fmt)
-            if root is not None:
-                folder_path = Path(root, run_dt)
-            else:
-                folder_path = Path(run_dt)
+            if root is None:
+                root = self.root_save_folder
+            folder_path = Path(root, this_run_dt)
             self.model_save_folder = folder_path
-            self.model_save_folder.mkdir(parents=True, exist_ok=True)
+        self.model_save_folder.mkdir(parents=True, exist_ok=True)
+        self.save_model_to_file(new_file=True)
 
     def set_dfs(self):
         if self.labels_df is None:
-            self.labels_df = pd.read_csv(Path(self.labels_file_path))
+            raise NotImplementedError("can't initialize test without labels dataframe")
 
         if self.features_df is None:
-            self.features_df = pd.read_csv(Path(self.features_file_path))
+            raise NotImplementedError("can't initialize test without features dataframe")
 
-        self.labels_df.drop(["Unnamed: 0"], errors='ignore', inplace=True, axis=1)
-        self.features_df.drop(["Unnamed: 0"], errors='ignore', inplace=True, axis=1)
+        for df in [self.labels_df, self.features_df]:
+            df.drop(["Unnamed: 0"], errors='ignore', inplace=True, axis=1)
+            df.dropna(axis=1, how='all', inplace=True)
 
         if self.select_num_instances is not None:
-            self.labels_df = self.labels_df[0:self.select_num_instances]
-            self.features_df = self.features_df[0:self.select_num_instances]
+            ninst = self.select_num_instances
+            nrows = self.features_df.shape[0]
+            endp = utils.get_int_or_fraction(ninst, nrows)
+            # keep only first lines of labels and features dfs
+            self.labels_df = self.labels_df[0:endp]
+            self.features_df = self.features_df[0:endp]
+
         if self.select_num_features is not None:
-            features_to_keep = range(self.select_num_features)
+            ninst = self.select_num_features
+            ncols = self.features_df.shape[1]
+            endp = utils.get_int_or_fraction(ninst, ncols)
+            # endp = ninst if ninst > 1 else int(ninst * ncols)
+            features_to_keep = np.arange(endp)
             # feature_names_to_keep = features_df.columns[features_to_keep]
             self.features_df = self.features_df.iloc[:, features_to_keep]
 
         self.selected_labels_temp = [self.lin_regressor_label, self.log_regressor_label]
         self.labels_df = self.labels_df[self.selected_labels_temp]
+        self.features_and_labels_df = pd.merge(self.features_df, self.labels_df, left_index=True, right_index=True,
+                                               how='inner').dropna()
 
-        self.features_and_labels_df = self.features_df.join(self.labels_df).dropna()
         label_col = [self.lin_regressor_label, self.log_regressor_label]
         self.features_df = self.features_and_labels_df.drop(columns=label_col)
         self.labels_df = self.features_and_labels_df[label_col]
@@ -254,20 +286,26 @@ class Disjointification:
         self.log_confusion_matrix = confusion_matrix(y_true=self.y_test_log, y_pred=self.y_pred_log,
                                                      normalize='all')
 
-    def autosave(self, printout=False):
+    def autosave(self, printout=False, new_file=False):
         if self.do_autosave:
             # print(f"{utils.get_dt_in_fmt()} autosave function called by {__name__}")
-            self.save_model(printout=printout)
+            self.save_model_to_file(printout=printout, new_file=new_file)
 
-    def save_model(self, printout=True):
+    def save_model_to_file(self, printout=True, new_file=False):
+        call_time = utils.get_dt_in_fmt()
         if printout:
             print(f"saving model...")
-        save_folder = self.model_save_folder
-        filename = f"{utils.get_dt_in_fmt()}_{self.features_df.shape}.pkl"
-        file = Path(save_folder, filename)
+        if new_file:
+            save_folder = self.model_save_folder
+            filename = f"{call_time}.pkl"
+            file = Path(save_folder, filename)
+            self.last_save_point_file = file
+        else:
+            file = self.last_save_point_file
+
         with open(file, 'wb') as f:
             pickle.dump(self, file=f)
-        self.last_save_point_file = file
+        self.last_save_time = call_time
         if printout:
             print(f"saved model to {file.resolve()}")
 
@@ -294,7 +332,7 @@ class Disjointification:
         sns.scatterplot(x=self.y_pred_lin, y=self.y_test_lin, ax=ax)
 
         title = f"linear regressor using dataset of total \n {self.x_train_lin.shape} " + \
-                "train and {self.x_test_lin.shape} test. \nScore: {self.lin_score:.2f}"
+                f"train and {self.x_test_lin.shape} test. \nScore: {self.lin_score:.2f}"
         ax.set(title=title, xlabel="y_test", ylabel="y_pred")
         ax.grid("minor")
 
@@ -303,7 +341,7 @@ class Disjointification:
             fig, ax = plt.subplots(1, 1, figsize=figsize)
         ConfusionMatrixDisplay.from_predictions(self.y_test_log, self.y_pred_log, ax=ax, cmap=cmap)
         title = f"log regressor using dataset of total \n {self.x_train_log.shape} " + \
-                "train and {self.x_test_log.shape} test. \nScore: {self.log_score:.2f}"
+                f"train and {self.x_test_log.shape} test. \nScore: {self.log_score:.2f}"
         ax.set(
             title=title)
 
@@ -405,4 +443,22 @@ class Disjointification:
             if mode == 'log':
                 self.features_selected_in_disjointification_log = self.features_selected_in_disjointification_temp
 
-            self.save_model()
+            self.save_model_to_file()
+
+
+if __name__ == "__main__":
+    ge_data = load_gene_expression_data()
+    features_df = ge_data["features"]
+    labels_df = ge_data["labels"]
+    select_num_features = 0.1
+    select_num_instances = 0.1
+    alert_selection = True
+    debug_print = False
+
+    test = Disjointification(features_file_path=None, labels_file_path=None, features_df=features_df,
+                             labels_df=labels_df, select_num_features=select_num_features,
+                             select_num_instances=select_num_instances)
+
+    min_num_of_features = 50
+    correlation_threshold = 0.99
+    test.run_disjointification(min_num_of_features=min_num_of_features, correlation_threshold=correlation_threshold)
