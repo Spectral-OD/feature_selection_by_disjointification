@@ -45,8 +45,11 @@ class Disjointification:
     def __init__(self, features_file_path=None, labels_file_path=None, labels_df=None, features_df=None,
                  select_num_features=None, select_num_instances=None, test_size=0.2,
                  lin_regressor_label="Lympho", log_regressor_label="ER", do_autosave=True,
+                 min_num_features=None, correlation_threshold=None,
                  max_num_iterations=None, root_save_folder=None, do_set=True, alert_selection=False):
 
+        self.correlation_threshold = correlation_threshold
+        self.min_num_features = min_num_features
         self.alert_selection = alert_selection
         self.last_save_time = None
         self.root_save_folder = root_save_folder
@@ -132,7 +135,10 @@ class Disjointification:
         self.description.append(title)
         self.description.append(f"features data: {self.features_df.shape}")
         self.description.append(f"labels data: {self.labels_df.shape}")
+        self.description.append(f"min num of features to keep in disjointification: {self.min_num_features}")
+        self.description.append(f"correlation threshold: {self.correlation_threshold}")
         self.description.append(f"last save point: {self.last_save_point_file}")
+
         p = [print(x) for x in self.description]
         # pprint(self.description)
 
@@ -391,16 +397,27 @@ class Disjointification:
         if self.max_num_iterations is None:
             self.max_num_iterations = np.inf
 
-    def run_disjointification(self, mode=None, num_iterations=None, correlation_threshold=0.1,
-                              min_num_of_features=np.inf, debug_print=False, alert_selection=False):
+    def set_disjointificationparams(self, min_num_of_features=None, correlation_threshold=None):
+        if min_num_of_features is not None:
+            self.min_num_features = min_num_of_features
+        if correlation_threshold is not None:
+            self.correlation_threshold = correlation_threshold
+
+    def run_disjointification(self, mode=None, num_iterations=None, correlation_threshold=None,
+                              min_num_features=None, debug_print=False, alert_selection=False):
+        if correlation_threshold is None:
+            correlation_threshold = self.correlation_threshold
+        if min_num_features is None:
+            min_num_features = self.min_num_features
+
         if mode is None:
             self.run_disjointification(mode='lin', num_iterations=num_iterations,
                                        correlation_threshold=correlation_threshold,
-                                       min_num_of_features=min_num_of_features,
+                                       min_num_features=min_num_features,
                                        debug_print=debug_print, alert_selection=alert_selection)
             self.run_disjointification(mode='log', num_iterations=num_iterations,
                                        correlation_threshold=correlation_threshold,
-                                       min_num_of_features=min_num_of_features,
+                                       min_num_features=min_num_features,
                                        debug_print=debug_print, alert_selection=alert_selection)
 
         else:
@@ -424,7 +441,7 @@ class Disjointification:
                     self.features_selected_in_disjointification_temp = [self.features_list_temp.index[0]]
                     continue
 
-                if len(self.features_selected_in_disjointification_temp) >= min_num_of_features:
+                if len(self.features_selected_in_disjointification_temp) >= min_num_features:
                     break
                 if feature_num >= num_iterations:
                     break
@@ -461,4 +478,4 @@ if __name__ == "__main__":
 
     min_num_of_features = 50
     correlation_threshold = 0.99
-    test.run_disjointification(min_num_of_features=min_num_of_features, correlation_threshold=correlation_threshold)
+    test.run_disjointification(min_num_features=min_num_of_features, correlation_threshold=correlation_threshold)
