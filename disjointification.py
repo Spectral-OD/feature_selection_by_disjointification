@@ -332,13 +332,14 @@ class Disjointification:
         for ax in axs.flatten():
             ax.grid("minor")
 
-    def show_linear_regressor(self, figsize=(6, 6), ax=None):
+    def show_linear_regressor(self, figsize=(6, 6), ax=None, title=None):
         if ax is None:
             fig, ax = plt.subplots(1, 1, figsize=figsize)
         sns.scatterplot(x=self.y_pred_lin, y=self.y_test_lin, ax=ax)
 
-        title = f"linear regressor using dataset of total \n {self.x_train_lin.shape} " + \
-                f"train and {self.x_test_lin.shape} test. \nScore: {self.lin_score:.2f}"
+        if title is None:
+            title = f"Lin. Reg. data shape \n {self.x_train_lin.shape} " + \
+                    f"train, {self.x_test_lin.shape} test. \nScore: {self.lin_score:.4f}"
         ax.set(title=title, xlabel="y_test", ylabel="y_pred")
         ax.grid("minor")
 
@@ -347,7 +348,7 @@ class Disjointification:
             fig, ax = plt.subplots(1, 1, figsize=figsize)
         ConfusionMatrixDisplay.from_predictions(self.y_test_log, self.y_pred_log, ax=ax, cmap=cmap)
         title = f"log regressor using dataset of total \n {self.x_train_log.shape} " + \
-                f"train and {self.x_test_log.shape} test. \nScore: {self.log_score:.2f}"
+                f"train and {self.x_test_log.shape} test. \nScore: {self.log_score:.4f}"
         ax.set(
             title=title)
 
