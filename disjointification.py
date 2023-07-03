@@ -14,17 +14,14 @@ plt.style.use(['science', 'notebook'])
 
 
 def load_gene_expression_data(data_folder=r"c:\data", labels_file_name=r"sampleinfo_SCANB_t.csv",
-                              features_file_name=r"SCANB_t.csv", labels_idx_column="samplename"):
+                              features_file_name=r"SCANB_t.csv"):
     labels_file_path = Path(data_folder, labels_file_name)
     features_file_path = Path(data_folder, features_file_name)
 
-    # features_df = pd.read_csv(features_file_path, index_col=labels_idx_column)
-    # labels_df = pd.read_csv(labels_file_path, index_col=labels_idx_column)
+    ft_df = pd.read_csv(features_file_path)
+    lbl_df = pd.read_csv(labels_file_path)
 
-    features_df = pd.read_csv(features_file_path)
-    labels_df = pd.read_csv(labels_file_path)
-
-    out_dict = {"labels": labels_df, "features": features_df}
+    out_dict = {"labels": lbl_df, "features": ft_df}
     return out_dict
 
 
@@ -48,16 +45,17 @@ class Disjointification:
                  min_num_features=None, correlation_threshold=None,
                  max_num_iterations=None, root_save_folder=None, do_set=True, alert_selection=False):
 
+        self.scores_df = None
+        # self.scores_from_worst_features_xy_log = None
+        # self.scores_from_worst_features_xy_lin = None
+        # self.scores_from_best_features_xy_log = None
+        # self.scores_from_best_features_xy_lin = None
         self.correlation_threshold = correlation_threshold
         self.min_num_features = min_num_features
         self.alert_selection = alert_selection
         self.last_save_time = None
         self.root_save_folder = root_save_folder
         self.description = None
-        self.regression_sweep_y_lin = None
-        self.regression_sweep_x_log = None
-        self.regression_sweep_y_log = None
-        self.regression_sweep_x_lin = None
         self.correlation_vals_temp = None
         self.features_list_temp = None
         self.drop_label_temp = None
@@ -130,7 +128,7 @@ class Disjointification:
         self.autosave()
 
     def describe(self):
-        title = ("Disjointification Test Description")
+        title = "Disjointification Test Description"
         self.description = []
         self.description.append(title)
         self.description.append(f"features data: {self.features_df.shape}")
@@ -139,8 +137,8 @@ class Disjointification:
         self.description.append(f"correlation threshold: {self.correlation_threshold}")
         self.description.append(f"last save point: {self.last_save_point_file}")
 
-        p = [print(x) for x in self.description]
-        # pprint(self.description)
+        for x in self.description:
+            print(x)
 
     def run(self, show=False):
         self.run_disjointification(alert_selection=self.alert_selection)
@@ -158,7 +156,14 @@ class Disjointification:
         self.model_save_folder.mkdir(parents=True, exist_ok=True)
         self.save_model_to_file(new_file=True)
 
+    def init_scores_df(self):
+        column_names = ["num_features", "scores_from_best_lin", "scores_from_worst_lin", "scores_from_best_log",
+                        "scores_from_worst_log"]
+        self.scores_df = pd.DataFrame(columns=column_names)
+
     def set_dfs(self):
+        self.init_scores_df()
+
         if self.labels_df is None:
             raise NotImplementedError("can't initialize test without labels dataframe")
 
@@ -170,20 +175,17 @@ class Disjointification:
             df.dropna(axis=1, how='all', inplace=True)
 
         if self.select_num_instances is not None:
-            ninst = self.select_num_instances
-            nrows = self.features_df.shape[0]
-            endp = utils.get_int_or_fraction(ninst, nrows)
-            # keep only first lines of labels and features dfs
-            self.labels_df = self.labels_df[0:endp]
-            self.features_df = self.features_df[0:endp]
+            num_instances = self.select_num_instances
+            num_rows = self.features_df.shape[0]
+            end_point = utils.get_int_or_fraction(num_instances, num_rows)
+            self.labels_df = self.labels_df[0:end_point]
+            self.features_df = self.features_df[0:end_point]
 
         if self.select_num_features is not None:
-            ninst = self.select_num_features
-            ncols = self.features_df.shape[1]
-            endp = utils.get_int_or_fraction(ninst, ncols)
-            # endp = ninst if ninst > 1 else int(ninst * ncols)
-            features_to_keep = np.arange(endp)
-            # feature_names_to_keep = features_df.columns[features_to_keep]
+            num_instances = self.select_num_features
+            num_cols = self.features_df.shape[1]
+            end_point = utils.get_int_or_fraction(num_instances, num_cols)
+            features_to_keep = np.arange(end_point)
             self.features_df = self.features_df.iloc[:, features_to_keep]
 
         self.selected_labels_temp = [self.lin_regressor_label, self.log_regressor_label]
@@ -227,36 +229,6 @@ class Disjointification:
             if mode == 'log':
                 self.run_logistic_regression(selected_features=self.features_selected_in_disjointification_log)
 
-    def sweep_regression(self, mode=None, selected_feature_num=None):
-        if mode is None:
-            self.sweep_regression(mode='lin', selected_feature_num=selected_feature_num)
-            self.sweep_regression(mode='log', selected_feature_num=selected_feature_num)
-        else:
-            total_features = None
-            if selected_feature_num is None:
-                if mode == 'lin':
-                    total_features = len(self.features_selected_in_disjointification_lin)
-                if mode == 'log':
-                    total_features = len(self.features_selected_in_disjointification_log)
-            step = np.sqrt(total_features).astype(int)
-            num_selected_features_list = np.linspace(1, stop=total_features, num=step, endpoint=True).astype(int)
-            score = None
-            scores = []
-            for selected_features in num_selected_features_list:
-                self.run_regressions(mode=mode, selected_features=selected_features)
-                if mode == 'lin':
-                    score = self.lin_score
-                if mode == 'log':
-                    score = self.log_score
-                scores.append(score)
-
-            if mode == 'lin':
-                self.regression_sweep_x_lin = num_selected_features_list
-                self.regression_sweep_y_lin = scores
-            if mode == 'log':
-                self.regression_sweep_x_log = num_selected_features_list
-                self.regression_sweep_y_log = scores
-
     def run_linear_regression(self, selected_features=None):
         self.linear_regressor = LinearRegression()
         y = self.labels_df[self.lin_regressor_label].copy()
@@ -292,6 +264,132 @@ class Disjointification:
         self.log_confusion_matrix = confusion_matrix(y_true=self.y_test_log, y_pred=self.y_pred_log,
                                                      normalize='all')
 
+    def sweep_regression_scores(self, mode=None, selected_feature_num=None, num_sweep=100,
+                                start_num_features=3, stop_num_features=None, order=None, all_features_list=None):
+
+        if mode is None:
+            self.init_scores_df()
+            self.sweep_regression_scores(mode='lin', selected_feature_num=selected_feature_num, num_sweep=num_sweep,
+                                         start_num_features=start_num_features, stop_num_features=stop_num_features,
+                                         order=order, all_features_list=all_features_list)
+            self.sweep_regression_scores(mode='log', selected_feature_num=selected_feature_num, num_sweep=num_sweep,
+                                         start_num_features=start_num_features, stop_num_features=stop_num_features,
+                                         order=order, all_features_list=all_features_list)
+        else:
+            if all_features_list is None:
+                if mode == 'lin':
+                    all_features_list = self.features_selected_in_disjointification_lin
+                if mode == 'log':
+                    all_features_list = self.features_selected_in_disjointification_log
+            if stop_num_features is None:
+                num_of_features_disjointed = len(all_features_list)
+            else:
+                num_of_features_disjointed = stop_num_features
+            nums_feats = np.geomspace(start=start_num_features,
+                                      stop=num_of_features_disjointed,
+                                      num=num_sweep, dtype=int)
+            self.scores_df["num_features"] = nums_feats
+
+            scores_from_best = []
+            scores_from_worst = []
+            for num_feats in nums_feats:
+                if order is None or order >= 0:
+                    best_features = all_features_list[0:num_feats]
+                    # self.run_regressions(mode=mode, selected_features=best_features)
+                    if mode == "lin":
+                        self.run_linear_regression(selected_features=best_features)
+                        scores_from_best.append(self.lin_score)
+                    if mode == "log":
+                        self.run_logistic_regression(selected_features=best_features)
+                        scores_from_best.append(self.log_score)
+
+                if order is None or order < 0:
+                    worst_features = all_features_list[::-1][0:num_feats]
+                    # self.run_regressions(mode=mode, selected_features=worst_features)
+
+                    if mode == "lin":
+                        self.run_linear_regression(selected_features=worst_features)
+                        scores_from_worst.append(self.lin_score)
+
+                    if mode == "log":
+                        self.run_logistic_regression(selected_features=worst_features)
+                        scores_from_worst.append(self.log_score)
+
+            # store results in scores dataframe
+            if mode == 'lin':
+                if order is None or order >= 0:
+                    # self.scores_from_best_features_xy_lin = (nums_feats, scores_from_best)
+                    self.scores_df["scores_from_best_lin"] = scores_from_best
+                if order is None or order < 0:
+                    # self.scores_from_worst_features_xy_lin = (nums_feats, scores_from_worst)
+                    self.scores_df["scores_from_worst_lin"] = scores_from_worst
+            if mode == 'log':
+                if order is None or order >= 0:
+                    # self.scores_from_best_features_xy_log = (nums_feats, scores_from_best)
+                    self.scores_df["scores_from_best_log"] = scores_from_best
+                if order is None or order < 0:
+                    # self.scores_from_worst_features_xy_log = (nums_feats, scores_from_worst)
+                    self.scores_df["scores_from_worst_log"] = scores_from_worst
+
+    def sweep_regression_plot(self, mode=None, selected_feature_num=None, num_sq=4,
+                              start_num_features=3, stop_num_features=None, figsize=(20, 25),
+                              order=1, all_features_list=None):
+        if mode is None:
+            self.sweep_regression_plot(mode='lin',
+                                       selected_feature_num=selected_feature_num, num_sq=num_sq,
+                                       start_num_features=3, stop_num_features=stop_num_features,
+                                       figsize=figsize, order=order, all_features_list=all_features_list)
+            self.sweep_regression_plot(mode='log',
+                                       selected_feature_num=selected_feature_num,
+                                       num_sq=num_sq, start_num_features=3, stop_num_features=stop_num_features,
+                                       figsize=figsize, order=order, all_features_list=all_features_list)
+        else:
+            if all_features_list is None:
+                if mode == 'lin':
+                    all_features_list = self.features_selected_in_disjointification_lin
+                if mode == 'log':
+                    all_features_list = self.features_selected_in_disjointification_log
+            if stop_num_features is None:
+                num_of_features_disjointed = len(all_features_list)
+            else:
+                num_of_features_disjointed = stop_num_features
+            nums_feats = np.geomspace(start=start_num_features,
+                                      stop=num_of_features_disjointed,
+                                      num=num_sq ** 2, dtype=int)
+            plt.figure()
+            fig, axs = plt.subplots(num_sq, num_sq, figsize=figsize)
+            kept_features = all_features_list
+            order_description = ''
+            for ax, num_feats in zip(axs.flatten(), nums_feats):
+                if order >= 0:
+                    kept_features = all_features_list[0:num_feats]
+                    order_description = 'best'
+                if order < 0:
+                    kept_features = all_features_list[::-1][0:num_feats]
+                    order_description = 'worst'
+
+                if mode == "lin":
+                    self.run_linear_regression(selected_features=kept_features)
+                    x_temp = self.y_pred_lin
+                    y_temp = self.y_test_lin
+                    score_temp = self.lin_score
+
+                if mode == "log":
+                    self.run_logistic_regression(selected_features=kept_features)
+                    x_temp = self.y_pred_log
+                    y_temp = self.y_test_log
+                    score_temp = self.log_score
+
+                ax.scatter(x_temp, y_temp, marker='.', label='model')
+                title = fr"{num_feats} {order_description} fts. $R^2$: {score_temp: .3f}"
+                ax.set(title=title, xlabel="Ground Truth", ylabel="Prediction")
+                ax.plot(y_temp, y_temp, 'r--', label='ideal')
+                ax.grid('minor')
+                ax.legend()
+            sup_title = f"Regressor ({mode}) Visualization as A Function of Number of Disjointed Features"
+            fig.suptitle(sup_title)
+            plt.show()
+
     def autosave(self, printout=False, new_file=False):
         if self.do_autosave:
             # print(f"{utils.get_dt_in_fmt()} autosave function called by {__name__}")
@@ -314,23 +412,6 @@ class Disjointification:
         self.last_save_time = call_time
         if printout:
             print(f"saved model to {file.resolve()}")
-
-    def show_regressor_sweep(self, figsize=(12, 6), axs=None):
-        if axs is None:
-            fig, axs = plt.subplots(1, 2, figsize=figsize)
-        ax = axs[0]
-        if np.all([self.regression_sweep_x_lin is not None, self.regression_sweep_y_lin is not None]):
-            sns.scatterplot(x=self.regression_sweep_x_lin, y=self.regression_sweep_y_lin, ax=ax)
-        title = f"linear regressor number of features vs. score"
-        ax.set(title=title, xlabel="num features", ylabel="R2 Score")
-        ax = axs[1]
-        if np.all([self.regression_sweep_x_log is not None, self.regression_sweep_y_log is not None]):
-            sns.scatterplot(x=self.regression_sweep_x_log, y=self.regression_sweep_y_log, ax=ax)
-        title = f"logistic regressor number of features vs. score"
-        ax.set(title=title, xlabel="num features", ylabel="R2 Score")
-
-        for ax in axs.flatten():
-            ax.grid("minor")
 
     def show_linear_regressor(self, figsize=(6, 6), ax=None, title=None):
         if ax is None:
@@ -397,12 +478,8 @@ class Disjointification:
         self.number_of_features_tested_log = 0
         if self.max_num_iterations is None:
             self.max_num_iterations = np.inf
-
-    def set_disjointificationparams(self, min_num_of_features=None, correlation_threshold=None):
-        if min_num_of_features is not None:
-            self.min_num_features = min_num_of_features
-        if correlation_threshold is not None:
-            self.correlation_threshold = correlation_threshold
+        if self.min_num_features is None:
+            self.min_num_features = self.features_df.shape[1]
 
     def run_disjointification(self, mode=None, num_iterations=None, correlation_threshold=None,
                               min_num_features=None, debug_print=False, alert_selection=False):
