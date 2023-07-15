@@ -46,35 +46,20 @@ class Disjointification:
                  max_num_iterations=None, root_save_folder=None, do_set=True, alert_selection=False):
 
         self.scores_df = None
-        # self.scores_from_worst_features_xy_log = None
-        # self.scores_from_worst_features_xy_lin = None
-        # self.scores_from_best_features_xy_log = None
-        # self.scores_from_best_features_xy_lin = None
         self.correlation_threshold = correlation_threshold
         self.min_num_features = min_num_features
         self.alert_selection = alert_selection
         self.last_save_time = None
         self.root_save_folder = root_save_folder
         self.description = None
-        self.correlation_vals_temp = None
-        self.features_list_temp = None
         self.drop_label_temp = None
         self.focus_label_temp = None
-        self.selected_labels_temp = None
         self.drop_labels_temp = None
-        self.corr_matrix_temp = None
         self.max_num_iterations = max_num_iterations
         self.last_save_point_file = None
         self.do_autosave = do_autosave
         self.model_save_folder = None
-        self.correlation_with_previous_features_temp = None
-        self.test_corr_matrix_temp = None
-        self.df_candidate_vs_existing_temp = None
-        self.candidate_feature_data_temp = None
-        self.selected_feature_data_temp = None
-        self.features_selected_in_disjointification_temp = None
         self.candidate_feature = None
-        self.features_to_test_series_temp = None
         self.number_of_features_tested_log = None
         self.number_of_features_tested_lin = None
         self.features_not_yet_selected_log = None
@@ -104,7 +89,6 @@ class Disjointification:
         self.y_pred_log = None
         self.num_labels = None
         self.num_features = None
-        self.candidate_and_selected_features_temp = None
         self.features_file_path = features_file_path
         self.labels_file_path = labels_file_path
         self.labels_df = labels_df
@@ -188,8 +172,8 @@ class Disjointification:
             features_to_keep = np.arange(end_point)
             self.features_df = self.features_df.iloc[:, features_to_keep]
 
-        self.selected_labels_temp = [self.lin_regressor_label, self.log_regressor_label]
-        self.labels_df = self.labels_df[self.selected_labels_temp]
+        selected_labels_temp = [self.lin_regressor_label, self.log_regressor_label]
+        self.labels_df = self.labels_df[selected_labels_temp]
         self.features_and_labels_df = pd.merge(self.features_df, self.labels_df, left_index=True, right_index=True,
                                                how='inner').dropna()
 
@@ -499,44 +483,45 @@ class Disjointification:
                                        debug_print=debug_print, alert_selection=alert_selection)
 
         else:
+            features_selected_in_disjointification_temp = None
             if num_iterations is None:
                 num_iterations = self.max_num_iterations
 
             if mode == 'lin':
                 if debug_print:
                     print(f'self.correlation_ranking_lin: {self.correlation_ranking_lin}')
-                self.features_list_temp = self.correlation_ranking_lin.copy()
+                features_list_temp = self.correlation_ranking_lin.copy()
             if mode == 'log':
                 if debug_print:
                     print(f'self.correlation_ranking_log: {self.correlation_ranking_log}')
-                self.features_list_temp = self.correlation_ranking_log.copy()
+                features_list_temp = self.correlation_ranking_log.copy()
 
-            for (feature_num, candidate_feature) in enumerate(self.features_list_temp.index):
+            for (feature_num, candidate_feature) in enumerate(features_list_temp.index):
                 if debug_print:
                     print(f"candidate_feature: {candidate_feature}")
-                if self.features_selected_in_disjointification_temp is None \
-                        or len(self.features_selected_in_disjointification_temp) == 0:
-                    self.features_selected_in_disjointification_temp = [self.features_list_temp.index[0]]
+                if features_selected_in_disjointification_temp is None \
+                        or len(features_selected_in_disjointification_temp) == 0:
+                    features_selected_in_disjointification_temp = [features_list_temp.index[0]]
                     continue
 
-                if len(self.features_selected_in_disjointification_temp) >= min_num_features:
+                if len(features_selected_in_disjointification_temp) >= min_num_features:
                     break
                 if feature_num >= num_iterations:
                     break
 
                 self.autosave()
-                self.corr_matrix_temp = self.features_df[self.features_selected_in_disjointification_temp]
-                self.candidate_feature_data_temp = self.features_df[candidate_feature]
-                self.correlation_vals_temp = self.corr_matrix_temp.corrwith(self.candidate_feature_data_temp)
-                if self.correlation_vals_temp.abs().max() <= correlation_threshold:
+                corr_matrix_temp = self.features_df[features_selected_in_disjointification_temp]
+                candidate_feature_data_temp = self.features_df[candidate_feature]
+                correlation_vals_temp = corr_matrix_temp.corrwith(candidate_feature_data_temp)
+                if correlation_vals_temp.abs().max() <= correlation_threshold:
                     if alert_selection:
                         print(f"candidate_feature: {candidate_feature} was selected!")
-                    self.features_selected_in_disjointification_temp.append(candidate_feature)
+                    features_selected_in_disjointification_temp.append(candidate_feature)
 
             if mode == 'lin':
-                self.features_selected_in_disjointification_lin = self.features_selected_in_disjointification_temp
+                self.features_selected_in_disjointification_lin = features_selected_in_disjointification_temp
             if mode == 'log':
-                self.features_selected_in_disjointification_log = self.features_selected_in_disjointification_temp
+                self.features_selected_in_disjointification_log = features_selected_in_disjointification_temp
 
             self.save_model_to_file()
 
