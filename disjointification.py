@@ -41,10 +41,14 @@ def from_file(file):
 class Disjointification:
     def __init__(self, features_file_path=None, labels_file_path=None, labels_df=None, features_df=None,
                  select_num_features=None, select_num_instances=None, test_size=0.2,
-                 lin_regressor_label="Lympho", log_regressor_label="ER", do_autosave=True,
+                 lin_regressor_label="Lympho", log_regressor_label="ER", logistic_regression_max_iter=1000,
+                 do_autosave=True,
+                 regression_correlation_method="pearson", classification_correlation_method="kendall",
                  min_num_features=None, correlation_threshold=None,
                  max_num_iterations=None, root_save_folder=None, do_set=True, alert_selection=False):
 
+        self.classification_correlation_method = classification_correlation_method
+        self.regression_correlation_method = regression_correlation_method
         self.scores_df = None
         self.correlation_threshold = correlation_threshold
         self.min_num_features = min_num_features
@@ -100,6 +104,9 @@ class Disjointification:
         self.test_size = test_size
         self.log_regressor_label = log_regressor_label
         self.lin_regressor_label = lin_regressor_label
+        self.logistic_regression_max_iter = logistic_regression_max_iter
+        self.class_weight = "balanced"
+        
         if do_set:
             self.set()
 
@@ -117,9 +124,16 @@ class Disjointification:
         self.description.append(title)
         self.description.append(f"features data: {self.features_df.shape}")
         self.description.append(f"labels data: {self.labels_df.shape}")
+        self.description.append(f"regression label: {self.lin_regressor_label}")
+        self.description.append(f"classification label: {self.log_regressor_label}")
+        self.description.append(f"correlation method regression: {self.regression_correlation_method}")
+        self.description.append(f"correlation method regression: {self.classification_correlation_method}")
         self.description.append(f"min num of features to keep in disjointification: {self.min_num_features}")
         self.description.append(f"correlation threshold: {self.correlation_threshold}")
         self.description.append(f"last save point: {self.last_save_point_file}")
+        self.description.append(f"number of features kept in disjointification: lin"
+                                f" {len(self.features_selected_in_disjointification_lin)}, "
+                                f"log {len(self.features_selected_in_disjointification_log)}")
 
         for x in self.description:
             print(x)
@@ -230,7 +244,7 @@ class Disjointification:
         self.lin_score = self.linear_regressor.score(self.x_test_lin, self.y_test_lin)
 
     def run_logistic_regression(self, selected_features=None):
-        self.logistic_regressor = LogisticRegression()
+        self.logistic_regressor = LogisticRegression(max_iter=self.logistic_regression_max_iter, class_weight=self.class_weight)
         y = self.labels_df[self.log_regressor_label]
         if self.features_selected_in_disjointification_log is None:
             x = self.features_df
@@ -434,7 +448,7 @@ class Disjointification:
     def set_label_correlation_lists(self):
         source = self.features_df
 
-        method = 'pearson'
+        method = self.regression_correlation_method
         label = self.lin_regressor_label
         target = self.labels_df[label]
 
@@ -442,7 +456,7 @@ class Disjointification:
         ranking = correlation_vals.abs().sort_values(ascending=False)
         self.correlation_ranking_lin = ranking
 
-        method = utils.wilcoxon_p_value
+        method = self.classification_correlation_method
         label = self.log_regressor_label
         target = self.labels_df[label]
 
