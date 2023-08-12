@@ -4,7 +4,6 @@ from pathlib import Path
 import pandas as pd
 import csv
 
-
 def get_dt_in_fmt(function=datetime.now, fmt="%m_%d_%Y__%H_%M_%S"):
     time = datetime.strftime(function(), fmt)
     return time

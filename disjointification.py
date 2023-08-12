@@ -35,7 +35,77 @@ def create_test(*args, file=None, **kwargs):
 def from_file(file):
     with open(file, 'rb') as f:
         loaded = pickle.load(f)
+    if not hasattr(loaded, "regression_correlation_method"):
+        setattr(loaded, "regression_correlation_method", None)
+    if not hasattr(loaded, "classification_correlation_method"):
+        setattr(loaded, "classification_correlation_method", None)
+    if not hasattr(loaded, "logistic_regression_max_iter"):
+        setattr(loaded, "logistic_regression_max_iter", 1000)
+    if not hasattr(loaded, "class_weight"):
+        setattr(loaded, "class_weight", "balanced")
+    try:
+        loaded.features_df.set_index("samplename", inplace=True)
+    except:
+        pass
+    try:
+        loaded.labels_df.set_index("samplename", inplace=True)
+    except:
+        pass
+    try:
+        loaded.features_and_labels_df.set_index("samplename", inplace=True)
+    except:
+        pass
+
     return loaded
+
+
+def validation_visualize_01(save_point, short_description="No Description", start_num_features=1, stop_num_features=300,
+                            num_sweep=300):
+    """
+
+    :param save_point: .pkl file containing Disjointification object
+    :param short_description: string describing save point
+    :param start_num_features: minimum number of feats to sweep over
+    :param stop_num_features: maximum number of feats to sweep over
+    :param num_sweep: number of sweep points
+    :return:
+    """
+    print(f"Validation Visualize: {short_description}")
+    test = from_file(save_point)
+    test.describe()
+
+    print("# Linear Prediction as a function of number of features kept (best and worst features)")
+    test.sweep_regression_plot(mode='lin')
+    test.sweep_regression_plot(mode='lin', order=-1)
+
+    print("Best features vs. Worst Features - Regression/Classification Score")
+    test.init_scores_df()
+    test.sweep_regression_scores(mode='lin', start_num_features=start_num_features, stop_num_features=stop_num_features,
+                                 num_sweep=num_sweep)
+    test.sweep_regression_scores(mode='log', start_num_features=start_num_features, stop_num_features=stop_num_features,
+                                 num_sweep=num_sweep)
+
+    plt.figure()
+    fig, axs = plt.subplots(1, 2, figsize=(20, 10))
+    data = test.scores_df
+
+    ax = axs.flatten()[0]
+    ax.set(title="Regression", xlabel="Number of Features", ylabel="Score")
+    sns.scatterplot(data=data, y="scores_from_best_lin", x="num_features", ax=ax,
+                    label="Using Best Features from Disjointification")
+    sns.scatterplot(data=data, y="scores_from_worst_lin", x="num_features", ax=ax,
+                    label="Using Worst Features from Disjointification")
+    ax.grid('minor')
+
+    ax = axs.flatten()[1]
+    ax.set(title="Clssification", xlabel="Number of Features", ylabel="Score")
+    sns.scatterplot(data=data, y="scores_from_best_log", x="num_features", ax=ax,
+                    label="Using Best Features from Disjointification")
+    sns.scatterplot(data=data, y="scores_from_worst_log", x="num_features", ax=ax,
+                    label="Using Worst Features from Disjointification")
+    ax.grid('minor')
+
+    plt.show()
 
 
 class Disjointification:
@@ -106,7 +176,7 @@ class Disjointification:
         self.lin_regressor_label = lin_regressor_label
         self.logistic_regression_max_iter = logistic_regression_max_iter
         self.class_weight = "balanced"
-        
+
         if do_set:
             self.set()
 
@@ -171,6 +241,10 @@ class Disjointification:
         for df in [self.labels_df, self.features_df]:
             df.drop(["Unnamed: 0"], errors='ignore', inplace=True, axis=1)
             df.dropna(axis=1, how='all', inplace=True)
+            try:
+                df.set_index("samplename", inplace=True)
+            except:
+                pass
 
         if self.select_num_instances is not None:
             num_instances = self.select_num_instances
@@ -244,7 +318,8 @@ class Disjointification:
         self.lin_score = self.linear_regressor.score(self.x_test_lin, self.y_test_lin)
 
     def run_logistic_regression(self, selected_features=None):
-        self.logistic_regressor = LogisticRegression(max_iter=self.logistic_regression_max_iter, class_weight=self.class_weight)
+        self.logistic_regressor = LogisticRegression(max_iter=self.logistic_regression_max_iter,
+                                                     class_weight=self.class_weight)
         y = self.labels_df[self.log_regressor_label]
         if self.features_selected_in_disjointification_log is None:
             x = self.features_df
@@ -427,7 +502,7 @@ class Disjointification:
             fig, ax = plt.subplots(1, 1, figsize=figsize)
         ConfusionMatrixDisplay.from_predictions(self.y_test_log, self.y_pred_log, ax=ax, cmap=cmap)
         title = f"log regressor using dataset of total \n {self.x_train_log.shape} " + \
-                f"train and {self.x_test_log.shape} test. \nScore: {self.log_score:.4f}"
+                f"train and {self.x_test_log.shape} test. \nScore (Accuracy): {self.log_score:.4f}"
         ax.set(
             title=title)
 
