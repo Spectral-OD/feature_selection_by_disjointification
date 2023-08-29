@@ -60,9 +60,11 @@ def from_file(file):
 
 
 def validation_visualize_01(save_point, short_description="No Description", start_num_features=1, stop_num_features=300,
-                            num_sweep=300):
+                            num_sweep=300, do_linear_regression_scatter=False, do_num_features_scatter=True):
     """
 
+    :param do_num_features_scatter: validation scatter plot for regression
+    :param do_linear_regression_scatter: validation scatter plot for both regression and classification
     :param save_point: .pkl file containing Disjointification object
     :param short_description: string describing save point
     :param start_num_features: minimum number of feats to sweep over
@@ -70,42 +72,47 @@ def validation_visualize_01(save_point, short_description="No Description", star
     :param num_sweep: number of sweep points
     :return:
     """
+
     print(f"Validation Visualize: {short_description}")
     test = from_file(save_point)
     test.describe()
 
-    print("# Linear Prediction as a function of number of features kept (best and worst features)")
-    test.sweep_regression_plot(mode='lin')
-    test.sweep_regression_plot(mode='lin', order=-1)
+    if do_linear_regression_scatter:
+        plt.figure()
+        print("# Linear Prediction as a function of number of features kept (best and worst features)")
+        test.sweep_regression_plot(mode='lin')
+        test.sweep_regression_plot(mode='lin', order=-1)
 
-    print("Best features vs. Worst Features - Regression/Classification Score")
-    test.init_scores_df()
-    test.sweep_regression_scores(mode='lin', start_num_features=start_num_features, stop_num_features=stop_num_features,
-                                 num_sweep=num_sweep)
-    test.sweep_regression_scores(mode='log', start_num_features=start_num_features, stop_num_features=stop_num_features,
-                                 num_sweep=num_sweep)
+    if do_num_features_scatter:
+        print("Best features vs. Worst Features - Regression/Classification Score")
+        test.init_scores_df()
+        test.sweep_regression_scores(mode='lin', start_num_features=start_num_features,
+                                     stop_num_features=stop_num_features,
+                                     num_sweep=num_sweep)
+        test.sweep_regression_scores(mode='log', start_num_features=start_num_features,
+                                     stop_num_features=stop_num_features,
+                                     num_sweep=num_sweep)
 
-    plt.figure()
-    fig, axs = plt.subplots(1, 2, figsize=(20, 10))
-    data = test.scores_df
+        plt.figure()
+        fig, axs = plt.subplots(1, 2, figsize=(20, 10))
+        data = test.scores_df
 
-    ax = axs.flatten()[0]
-    ax.set(title="Regression", xlabel="Number of Features", ylabel="Score")
-    sns.scatterplot(data=data, y="scores_from_best_lin", x="num_features", ax=ax,
-                    label="Using Best Features from Disjointification")
-    sns.scatterplot(data=data, y="scores_from_worst_lin", x="num_features", ax=ax,
-                    label="Using Worst Features from Disjointification")
-    ax.grid('minor')
+        ax = axs.flatten()[0]
+        ax.set(title="Regression", xlabel="Number of Features", ylabel="Score")
+        sns.scatterplot(data=data, y="scores_from_best_lin", x="num_features", ax=ax,
+                        label="Using Best Features from Disjointification")
+        sns.scatterplot(data=data, y="scores_from_worst_lin", x="num_features", ax=ax,
+                        label="Using Worst Features from Disjointification")
+        ax.grid('minor')
 
-    ax = axs.flatten()[1]
-    ax.set(title="Clssification", xlabel="Number of Features", ylabel="Score")
-    sns.scatterplot(data=data, y="scores_from_best_log", x="num_features", ax=ax,
-                    label="Using Best Features from Disjointification")
-    sns.scatterplot(data=data, y="scores_from_worst_log", x="num_features", ax=ax,
-                    label="Using Worst Features from Disjointification")
-    ax.grid('minor')
-
-    plt.show()
+        ax = axs.flatten()[1]
+        ax.set(title="Clssification", xlabel="Number of Features", ylabel="Score")
+        sns.scatterplot(data=data, y="scores_from_best_log", x="num_features", ax=ax,
+                        label="Using Best Features from Disjointification")
+        sns.scatterplot(data=data, y="scores_from_worst_log", x="num_features", ax=ax,
+                        label="Using Worst Features from Disjointification")
+        ax.grid('minor')
+        plt.show()
 
 
 class Disjointification:
