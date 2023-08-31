@@ -60,7 +60,7 @@ def from_file(file):
 
 
 def validation_visualize_01(save_point, short_description="No Description", start_num_features=1, stop_num_features=300,
-                            num_sweep=300, do_linear_regression_scatter=False, do_num_features_scatter=True):
+                            num_sweep=300, do_linear_regression_scatter=False, do_num_features_scatter=True, linear_features_list=None, log_feature_list=None):
     """
 
     :param do_num_features_scatter: validation scatter plot for regression
@@ -88,10 +88,10 @@ def validation_visualize_01(save_point, short_description="No Description", star
         test.init_scores_df()
         test.sweep_regression_scores(mode='lin', start_num_features=start_num_features,
                                      stop_num_features=stop_num_features,
-                                     num_sweep=num_sweep)
+                                     num_sweep=num_sweep, all_features_list=linear_features_list)
         test.sweep_regression_scores(mode='log', start_num_features=start_num_features,
                                      stop_num_features=stop_num_features,
-                                     num_sweep=num_sweep)
+                                     num_sweep=num_sweep, all_features_list=log_feature_list)
 
         plt.figure()
         fig, axs = plt.subplots(1, 2, figsize=(20, 10))
