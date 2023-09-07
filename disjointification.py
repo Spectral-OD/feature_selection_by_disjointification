@@ -60,17 +60,19 @@ def from_file(file):
 
 
 def validation_visualize_01(save_point, short_description="No Description", start_num_features=1, stop_num_features=300,
-                            num_sweep=300, do_linear_regression_scatter=False, do_num_features_scatter=True, linear_features_list=None, log_feature_list=None):
+                            num_sweep=300, do_linear_regression_scatter=False, do_num_features_scatter=True,
+                            linear_features_list=None, log_feature_list=None):
     """
-
-    :param do_num_features_scatter: validation scatter plot for regression
-    :param do_linear_regression_scatter: validation scatter plot for both regression and classification
-    :param save_point: .pkl file containing Disjointification object
-    :param short_description: string describing save point
-    :param start_num_features: minimum number of feats to sweep over
-    :param stop_num_features: maximum number of feats to sweep over
-    :param num_sweep: number of sweep points
-    :return:
+    :param log_feature_list: manually define features for linear visualization.
+    :param linear_features_list: manually define features for linear visualization.
+    :param do_num_features_scatter: validation scatter plot for regression.
+    :param do_linear_regression_scatter: validation scatter plot for both regression and classification.
+    :param save_point: .pkl file containing Disjointification object.
+    :param short_description: string describing save point.
+    :param start_num_features: minimum number of feats to sweep over.
+    :param stop_num_features: maximum number of feats to sweep over.
+    :param num_sweep: number of sweep points.
+    :return: None.
     """
 
     print(f"Validation Visualize: {short_description}")
@@ -106,7 +108,7 @@ def validation_visualize_01(save_point, short_description="No Description", star
         ax.grid('minor')
 
         ax = axs.flatten()[1]
-        ax.set(title="Clssification", xlabel="Number of Features", ylabel="Score")
+        ax.set(title="Classification", xlabel="Number of Features", ylabel="Score")
         sns.scatterplot(data=data, y="scores_from_best_log", x="num_features", ax=ax,
                         label="Using Best Features from Disjointification")
         sns.scatterplot(data=data, y="scores_from_worst_log", x="num_features", ax=ax,
@@ -120,7 +122,8 @@ class Disjointification:
                  select_num_features=None, select_num_instances=None, test_size=0.2,
                  lin_regressor_label="Lympho", log_regressor_label="ER", logistic_regression_max_iter=1000,
                  do_autosave=True,
-                 regression_correlation_method="pearson", classification_correlation_method="kendall",
+                 regression_correlation_method="pearson",
+                 classification_correlation_method=utils.pointbiserialr_p_value,
                  min_num_features=None, correlation_threshold=None,
                  max_num_iterations=None, root_save_folder=None, do_set=True, alert_selection=False):
 
@@ -448,6 +451,10 @@ class Disjointification:
                     kept_features = all_features_list[::-1][0:num_feats]
                     order_description = 'worst'
 
+                x_temp = None
+                y_temp = None
+                score_temp = None
+
                 if mode == "lin":
                     self.run_linear_regression(selected_features=kept_features)
                     x_temp = self.y_pred_lin
@@ -583,6 +590,8 @@ class Disjointification:
             if num_iterations is None:
                 num_iterations = self.max_num_iterations
 
+            features_list_temp = None
+
             if mode == 'lin':
                 if debug_print:
                     print(f'self.correlation_ranking_lin: {self.correlation_ranking_lin}')
@@ -624,17 +633,17 @@ class Disjointification:
 
 if __name__ == "__main__":
     ge_data = load_gene_expression_data()
-    features_df = ge_data["features"]
-    labels_df = ge_data["labels"]
-    select_num_features = 0.1
-    select_num_instances = 0.1
-    alert_selection = True
-    debug_print = False
+    _features_df = ge_data["features"]
+    _labels_df = ge_data["labels"]
+    _select_num_features = 0.1
+    _select_num_instances = 0.1
+    _alert_selection = True
+    _debug_print = False
 
-    test = Disjointification(features_file_path=None, labels_file_path=None, features_df=features_df,
-                             labels_df=labels_df, select_num_features=select_num_features,
-                             select_num_instances=select_num_instances)
+    _test = Disjointification(features_file_path=None, labels_file_path=None, features_df=_features_df,
+                              labels_df=_labels_df, select_num_features=_select_num_features,
+                              select_num_instances=_select_num_instances)
 
-    min_num_of_features = 50
-    correlation_threshold = 0.99
-    test.run_disjointification(min_num_features=min_num_of_features, correlation_threshold=correlation_threshold)
+    _min_num_of_features = 50
+    _correlation_threshold = 0.99
+    _test.run_disjointification(min_num_features=_min_num_of_features, correlation_threshold=_correlation_threshold)
