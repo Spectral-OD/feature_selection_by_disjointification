@@ -569,7 +569,7 @@ class Disjointification:
             self.min_num_features = self.features_df.shape[1]
 
     def run_disjointification(self, mode=None, num_iterations=None, correlation_threshold=None,
-                              min_num_features=None, debug_print=False, alert_selection=False):
+                              min_num_features=None, alert_selection=False):
         if correlation_threshold is None:
             correlation_threshold = self.correlation_threshold
         if min_num_features is None:
@@ -583,12 +583,12 @@ class Disjointification:
             self.run_disjointification(mode='lin', num_iterations=num_iterations,
                                        correlation_threshold=correlation_threshold,
                                        min_num_features=min_num_features,
-                                       debug_print=debug_print, alert_selection=alert_selection)
+                                       alert_selection=alert_selection)
             print(f"\n\n{this_time} : Running classification disjointification.\n\n")
             self.run_disjointification(mode='log', num_iterations=num_iterations,
                                        correlation_threshold=correlation_threshold,
                                        min_num_features=min_num_features,
-                                       debug_print=debug_print, alert_selection=alert_selection)
+                                       alert_selection=alert_selection)
 
         else:  # run this specific mode
             current_iteration_num = 0
@@ -601,19 +601,13 @@ class Disjointification:
             features_list_temp = None
 
             if mode == 'lin':
-                if debug_print:
-                    print(f'self.correlation_ranking_lin: {self.correlation_ranking_lin}')
                 features_list_temp = self.correlation_ranking_lin.copy()
             if mode == 'log':
-                if debug_print:
-                    print(f'self.correlation_ranking_log: {self.correlation_ranking_log}')
                 features_list_temp = self.correlation_ranking_log.copy()
 
             for (feature_num, candidate_feature) in enumerate(features_list_temp.index):
                 current_iteration_num = current_iteration_num+1
 
-                if debug_print:
-                    print(f"candidate_feature: {candidate_feature}")
                 if features_selected_in_disjointification_temp is None \
                         or len(features_selected_in_disjointification_temp) == 0:
                     features_selected_in_disjointification_temp = [features_list_temp.index[0]]
@@ -653,7 +647,6 @@ if __name__ == "__main__":
     _select_num_features = 0.1
     _select_num_instances = 0.1
     _alert_selection = True
-    _debug_print = False
 
     _test = Disjointification(features_file_path=None, labels_file_path=None, features_df=_features_df,
                               labels_df=_labels_df, select_num_features=_select_num_features,
