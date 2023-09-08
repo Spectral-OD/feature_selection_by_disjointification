@@ -127,7 +127,7 @@ class Disjointification:
                  regression_correlation_method="pearson",
                  classification_correlation_method=utils.point_bi_serial_r_correlation,
                  min_num_features=None,
-                 max_num_iterations=np.inf, root_save_folder=None, do_set: bool=True):
+                 max_num_iterations=np.inf, root_save_folder=None, do_set: bool = True):
         """
 
         :param correlation_threshold: maximum correlation allowed between any two features
@@ -666,6 +666,18 @@ class Disjointification:
                 self.features_selected_in_disjointification_log = features_selected_in_disjointification_temp
 
             self.save_model_to_file()
+
+    def get_features_selected_for_regression(self):
+        return self.features_selected_in_disjointification_lin
+
+    def get_features_selected_for_classification(self):
+        return self.features_selected_in_disjointification_log
+
+    def get_num_features_selected_for_regression(self):
+        return np.array(self.features_selected_in_disjointification_lin).size
+
+    def get_num_features_selected_for_classification(self):
+        return np.array(self.features_selected_in_disjointification_log).size
 
 
 if __name__ == "__main__":
