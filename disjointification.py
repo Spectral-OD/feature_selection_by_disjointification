@@ -123,7 +123,7 @@ class Disjointification:
                  lin_regressor_label="Lympho", log_regressor_label="ER", logistic_regression_max_iter=1000,
                  do_autosave=True,
                  regression_correlation_method="pearson",
-                 classification_correlation_method=utils.pointbiserialr_p_value,
+                 classification_correlation_method=utils.point_bi_serial_r_correlation,
                  min_num_features=None, correlation_threshold=None,
                  max_num_iterations=None, root_save_folder=None, do_set=True, alert_selection=False):
 
@@ -575,17 +575,25 @@ class Disjointification:
         if min_num_features is None:
             min_num_features = self.min_num_features
 
-        if mode is None:
+        if mode is None:  # run both modes recursively
+            this_time = utils.get_dt_in_fmt()
+            print(f"{this_time} : Running both regression and classification disjointification.")
+
+            print(f"\n\n{this_time} : Running regression disjointification.\n\n")
             self.run_disjointification(mode='lin', num_iterations=num_iterations,
                                        correlation_threshold=correlation_threshold,
                                        min_num_features=min_num_features,
                                        debug_print=debug_print, alert_selection=alert_selection)
+            print(f"\n\n{this_time} : Running classification disjointification.\n\n")
             self.run_disjointification(mode='log', num_iterations=num_iterations,
                                        correlation_threshold=correlation_threshold,
                                        min_num_features=min_num_features,
                                        debug_print=debug_print, alert_selection=alert_selection)
 
-        else:
+        else:  # run this specific mode
+            current_iteration_num = 0
+            num_found = 0
+
             features_selected_in_disjointification_temp = None
             if num_iterations is None:
                 num_iterations = self.max_num_iterations
@@ -602,6 +610,8 @@ class Disjointification:
                 features_list_temp = self.correlation_ranking_log.copy()
 
             for (feature_num, candidate_feature) in enumerate(features_list_temp.index):
+                current_iteration_num = current_iteration_num+1
+
                 if debug_print:
                     print(f"candidate_feature: {candidate_feature}")
                 if features_selected_in_disjointification_temp is None \
@@ -622,6 +632,11 @@ class Disjointification:
                     if alert_selection:
                         print(f"candidate_feature: {candidate_feature} was selected!")
                     features_selected_in_disjointification_temp.append(candidate_feature)
+                    num_found = num_found+1
+
+                if np.mod(current_iteration_num, 100) == 0:
+                    this_time = utils.get_dt_in_fmt()
+                    print(f"{this_time} - after {current_iteration_num} iterations, found {num_found} features!")
 
             if mode == 'lin':
                 self.features_selected_in_disjointification_lin = features_selected_in_disjointification_temp

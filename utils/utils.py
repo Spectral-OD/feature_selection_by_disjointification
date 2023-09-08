@@ -1,8 +1,8 @@
 from datetime import datetime
 from scipy.stats import wilcoxon, pointbiserialr
-from pathlib import Path
 import pandas as pd
 import csv
+
 
 def get_dt_in_fmt(function=datetime.now, fmt="%m_%d_%Y__%H_%M_%S"):
     time = datetime.strftime(function(), fmt)
@@ -14,9 +14,9 @@ def wilcoxon_p_value(x, y):
     return w_test.pvalue
 
 
-def pointbiserialr_p_value(x, y):
-    w_test = pointbiserialr(x, y)
-    return w_test.pvalue
+def point_bi_serial_r_correlation(x, y):
+    pb_test = pointbiserialr(x, y)
+    return pb_test.correlation
 
 
 def make_transposed_csv(input_csv_file, to_file=False, return_path=False):
