@@ -118,14 +118,37 @@ def validation_visualize_01(save_point, short_description="No Description", star
 
 
 class Disjointification:
-    def __init__(self, features_file_path=None, labels_file_path=None, labels_df=None, features_df=None,
-                 select_num_features=None, select_num_instances=None, test_size=0.2,
-                 lin_regressor_label="Lympho", log_regressor_label="ER", logistic_regression_max_iter=1000,
+    def __init__(self, correlation_threshold, features_file_path=None, labels_file_path=None,
+                 labels_df: pd.DataFrame = None, features_df: pd.DataFrame = None,
+                 select_num_features=None, select_num_instances=None, test_size: float = 0.2,
+                 lin_regressor_label: str = "Lympho", log_regressor_label: str = "ER",
+                 logistic_regression_max_iter=1000,
                  do_autosave=True,
                  regression_correlation_method="pearson",
                  classification_correlation_method=utils.point_bi_serial_r_correlation,
-                 min_num_features=None, correlation_threshold=None,
-                 max_num_iterations=None, root_save_folder=None, do_set=True):
+                 min_num_features=None,
+                 max_num_iterations=np.inf, root_save_folder=None, do_set: bool=True):
+        """
+
+        :param correlation_threshold: maximum correlation allowed between any two features
+        :param features_file_path: str or Path where features file exists, or None and provide features_df instead
+        :param labels_file_path: str or Path where labels file exists, or None and provide labels_df instead
+        :param labels_df: dataframe containing labels
+        :param features_df: dataframe containing features
+        :param select_num_features: for debug-purposes, use only a limited number of features out of the data
+        :param select_num_instances: for debug-purposes, use only a limited number of instances out of the data
+        :param test_size: after disjointification, use this to split train-test for Regression model
+        :param lin_regressor_label: label to search in dataframes for regression
+        :param log_regressor_label: label to search in dataframes for classification
+        :param logistic_regression_max_iter: intended to increase number of iterations if needed, for Log Regression
+        :param do_autosave: saves model during disjointification in various points
+        :param regression_correlation_method: str or pair-wise function to correlate with regression label
+        :param classification_correlation_method: str or pair-wise function to correlate with classification label
+        :param min_num_features: min. num. of features successfully disjointed before stopping, or all features if None.
+        :param max_num_iterations: maximum number of iterations before disjointification stops
+        :param root_save_folder: str or Path object. Model results will be saved in sub-folders under this root
+        :param do_set: sets the model automatically after initializing
+        """
 
         self.classification_correlation_method = classification_correlation_method
         self.regression_correlation_method = regression_correlation_method
@@ -572,7 +595,7 @@ class Disjointification:
         """
 
         :param mode: None, 'lin' or 'log' - run regression or classification disjointification, or both if None
-        :param num_iterations: how many itterations to run for. Will take the initialized number if None
+        :param num_iterations: how many iterations to run for. Will take the initialized number if None
         :param correlation_threshold: abs. correlation allowed between two selected features. Use initialized if None
         :param min_num_features: number of features to find before stopping. Use initialized if None.
         :return:
