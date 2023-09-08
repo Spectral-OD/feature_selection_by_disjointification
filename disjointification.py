@@ -651,7 +651,8 @@ class Disjointification:
                 corr_matrix_temp = self.features_df[features_selected_in_disjointification_temp]
                 candidate_feature_data_temp = self.features_df[candidate_feature]
                 correlation_vals_temp = corr_matrix_temp.corrwith(candidate_feature_data_temp)
-                if correlation_vals_temp.abs().max() <= correlation_threshold:
+
+                if correlation_vals_temp.abs().max() <= correlation_threshold:  # found a new feature
                     features_selected_in_disjointification_temp.append(candidate_feature)
                     num_found = num_found + 1
 
