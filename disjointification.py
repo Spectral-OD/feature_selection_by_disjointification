@@ -125,14 +125,13 @@ class Disjointification:
                  regression_correlation_method="pearson",
                  classification_correlation_method=utils.point_bi_serial_r_correlation,
                  min_num_features=None, correlation_threshold=None,
-                 max_num_iterations=None, root_save_folder=None, do_set=True, alert_selection=False):
+                 max_num_iterations=None, root_save_folder=None, do_set=True):
 
         self.classification_correlation_method = classification_correlation_method
         self.regression_correlation_method = regression_correlation_method
         self.scores_df = None
         self.correlation_threshold = correlation_threshold
         self.min_num_features = min_num_features
-        self.alert_selection = alert_selection
         self.last_save_time = None
         self.root_save_folder = root_save_folder
         self.description = None
@@ -219,7 +218,7 @@ class Disjointification:
             print(x)
 
     def run(self, show=False):
-        self.run_disjointification(alert_selection=self.alert_selection)
+        self.run_disjointification()
         self.run_regressions()
         if show:
             self.show()
@@ -568,8 +567,17 @@ class Disjointification:
         if self.min_num_features is None:
             self.min_num_features = self.features_df.shape[1]
 
-    def run_disjointification(self, mode=None, num_iterations=None, correlation_threshold=None,
-                              min_num_features=None, alert_selection=False):
+    def run_disjointification(self, mode: str = None, num_iterations: int = None, correlation_threshold: float = None,
+                              min_num_features: int = None):
+        """
+
+        :param mode: None, 'lin' or 'log' - run regression or classification disjointification, or both if None
+        :param num_iterations: how many itterations to run for. Will take the initialized number if None
+        :param correlation_threshold: abs. correlation allowed between two selected features. Use initialized if None
+        :param min_num_features: number of features to find before stopping. Use initialized if None.
+        :return:
+        """
+
         if correlation_threshold is None:
             correlation_threshold = self.correlation_threshold
         if min_num_features is None:
@@ -582,13 +590,11 @@ class Disjointification:
             print(f"\n\n{this_time} : Running regression disjointification.\n\n")
             self.run_disjointification(mode='lin', num_iterations=num_iterations,
                                        correlation_threshold=correlation_threshold,
-                                       min_num_features=min_num_features,
-                                       alert_selection=alert_selection)
+                                       min_num_features=min_num_features)
             print(f"\n\n{this_time} : Running classification disjointification.\n\n")
             self.run_disjointification(mode='log', num_iterations=num_iterations,
                                        correlation_threshold=correlation_threshold,
-                                       min_num_features=min_num_features,
-                                       alert_selection=alert_selection)
+                                       min_num_features=min_num_features)
 
         else:  # run this specific mode
             current_iteration_num = 0
@@ -606,7 +612,7 @@ class Disjointification:
                 features_list_temp = self.correlation_ranking_log.copy()
 
             for (feature_num, candidate_feature) in enumerate(features_list_temp.index):
-                current_iteration_num = current_iteration_num+1
+                current_iteration_num = current_iteration_num + 1
 
                 if features_selected_in_disjointification_temp is None \
                         or len(features_selected_in_disjointification_temp) == 0:
@@ -623,10 +629,8 @@ class Disjointification:
                 candidate_feature_data_temp = self.features_df[candidate_feature]
                 correlation_vals_temp = corr_matrix_temp.corrwith(candidate_feature_data_temp)
                 if correlation_vals_temp.abs().max() <= correlation_threshold:
-                    if alert_selection:
-                        print(f"candidate_feature: {candidate_feature} was selected!")
                     features_selected_in_disjointification_temp.append(candidate_feature)
-                    num_found = num_found+1
+                    num_found = num_found + 1
 
                 if np.mod(current_iteration_num, 100) == 0:
                     this_time = utils.get_dt_in_fmt()
@@ -646,7 +650,6 @@ if __name__ == "__main__":
     _labels_df = ge_data["labels"]
     _select_num_features = 0.1
     _select_num_instances = 0.1
-    _alert_selection = True
 
     _test = Disjointification(features_file_path=None, labels_file_path=None, features_df=_features_df,
                               labels_df=_labels_df, select_num_features=_select_num_features,
