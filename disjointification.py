@@ -35,6 +35,7 @@ def create_test(*args, file=None, **kwargs):
 def from_file(file):
     with open(file, 'rb') as f:
         loaded = pickle.load(f)
+    # backwards compatibility attribute loading
     if not hasattr(loaded, "regression_correlation_method"):
         setattr(loaded, "regression_correlation_method", None)
     if not hasattr(loaded, "classification_correlation_method"):
