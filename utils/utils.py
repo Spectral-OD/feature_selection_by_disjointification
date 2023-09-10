@@ -14,7 +14,13 @@ def wilcoxon_p_value(x, y):
     return w_test.pvalue
 
 
-def point_bi_serial_r_correlation(binary_seriers, continuous_series):
+def point_bi_serial_r_correlation(continuous_series, binary_seriers):
+    """
+    This function mostly switches the args of a pandas CorrWith function so that the continuous variable comes first
+    :param continuous_series: pandas series of continous type
+    :param binary_seriers: pandas series of binary type
+    :return:
+    """
     pb_test = pointbiserialr(binary_seriers, continuous_series)
     return pb_test.correlation
 
