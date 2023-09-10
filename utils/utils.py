@@ -14,8 +14,8 @@ def wilcoxon_p_value(x, y):
     return w_test.pvalue
 
 
-def point_bi_serial_r_correlation(x, y):
-    pb_test = pointbiserialr(x, y)
+def point_bi_serial_r_correlation(binary_seriers, continuous_series):
+    pb_test = pointbiserialr(binary_seriers, continuous_series)
     return pb_test.correlation
 
 
