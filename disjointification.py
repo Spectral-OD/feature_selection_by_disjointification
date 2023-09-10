@@ -159,9 +159,6 @@ class Disjointification:
         self.last_save_time = None
         self.root_save_folder = root_save_folder
         self.description = None
-        self.drop_label_temp = None
-        self.focus_label_temp = None
-        self.drop_labels_temp = None
         self.max_num_iterations = max_num_iterations
         self.last_save_point_file = None
         self.do_autosave = do_autosave
@@ -169,10 +166,6 @@ class Disjointification:
         self.candidate_feature = None
         self.number_of_features_tested_log = None
         self.number_of_features_tested_lin = None
-        self.features_not_yet_selected_log = None
-        self.features_not_yet_selected_lin = None
-        self.features_rejected_log = None
-        self.features_rejected_lin = None
         self.features_selected_in_disjointification_log = None
         self.features_selected_in_disjointification_lin = None
         self.correlation_ranking_log = None
@@ -580,10 +573,6 @@ class Disjointification:
     def set_feature_lists(self):
         self.features_selected_in_disjointification_lin = []
         self.features_selected_in_disjointification_log = []
-        self.features_rejected_lin = []
-        self.features_rejected_log = []
-        self.features_not_yet_selected_lin = self.features_df.columns
-        self.features_not_yet_selected_log = self.features_df.columns
         self.number_of_features_tested_lin = 0
         self.number_of_features_tested_log = 0
         if self.max_num_iterations is None:
