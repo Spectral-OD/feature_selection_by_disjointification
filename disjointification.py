@@ -60,15 +60,18 @@ def from_file(file):
     return loaded
 
 
-def validation_visualize_01(save_point, short_description="No Description", start_num_features=1, stop_num_features=300,
-                            num_sweep=300, do_linear_regression_scatter=False, do_num_features_scatter=True,
-                            linear_features_list=None, log_feature_list=None):
+def validation_visualize_01(save_point=None, disjointification_model=None, short_description="No Description",
+                            start_num_features=1, stop_num_features=300, num_sweep=300,
+                            do_linear_regression_scatter=False, do_num_features_scatter=True,
+                            linear_features_list=None, log_feature_list=None, ylim=None, do_worst=True):
     """
+    :param ylim: limit the y axis of the plots
+    :param disjointification_model: disjointification model to visualize.
     :param log_feature_list: manually define features for linear visualization.
     :param linear_features_list: manually define features for linear visualization.
     :param do_num_features_scatter: validation scatter plot for regression.
     :param do_linear_regression_scatter: validation scatter plot for both regression and classification.
-    :param save_point: .pkl file containing Disjointification object.
+    :param save_point: .pkl file containing Disjointification object. Must be given if the model is None
     :param short_description: string describing save point.
     :param start_num_features: minimum number of feats to sweep over.
     :param stop_num_features: maximum number of feats to sweep over.
@@ -77,7 +80,10 @@ def validation_visualize_01(save_point, short_description="No Description", star
     """
 
     print(f"Validation Visualize: {short_description}")
-    test = from_file(save_point)
+    if save_point is None:
+        test = disjointification_model
+    else:
+        test = from_file(save_point)
     test.describe()
 
     if do_linear_regression_scatter:
@@ -104,17 +110,23 @@ def validation_visualize_01(save_point, short_description="No Description", star
         ax.set(title="Regression", xlabel="Number of Features", ylabel="Score")
         sns.scatterplot(data=data, y="scores_from_best_lin", x="num_features", ax=ax,
                         label="Using Best Features from Disjointification")
-        sns.scatterplot(data=data, y="scores_from_worst_lin", x="num_features", ax=ax,
-                        label="Using Worst Features from Disjointification")
+        if do_worst:
+            sns.scatterplot(data=data, y="scores_from_worst_lin", x="num_features", ax=ax,
+                            label="Using Worst Features from Disjointification")
         ax.grid('minor')
 
         ax = axs.flatten()[1]
         ax.set(title="Classification", xlabel="Number of Features", ylabel="Score")
         sns.scatterplot(data=data, y="scores_from_best_log", x="num_features", ax=ax,
                         label="Using Best Features from Disjointification")
-        sns.scatterplot(data=data, y="scores_from_worst_log", x="num_features", ax=ax,
-                        label="Using Worst Features from Disjointification")
+        if do_worst:
+            sns.scatterplot(data=data, y="scores_from_worst_log", x="num_features", ax=ax,
+                            label="Using Worst Features from Disjointification")
         ax.grid('minor')
+
+        if ylim is not None:
+            for ax in axs.flatten():
+                ax.set(ylim=ylim)
         plt.show()
 
 
