@@ -144,7 +144,7 @@ class DisjointificationWrapper:
         # print(f"Final score on test set - {mode_str}: {final_score}")
         self.final_test_score_classification = final_score
 
-    def show_results(self, figsize=(12, 15)):
+    def show_results(self, figsize=(12, 15), ylim=None):
         this_wrapper = self
 
         fig, axs = plt.subplots(2, 2, figsize=figsize)
@@ -158,13 +158,14 @@ class DisjointificationWrapper:
         final_scores = np.multiply(self.final_test_score_regression, np.ones([len(number_of_features),1]))
         ax.plot(number_of_features, final_scores, label="Eventual score on test set")
         ax.set(ylabel="Score", title=mode + " model improvement")
+        if ylim is not None:
+            ax.set(ylim=ylim)
         ax.legend()
 
         ax = axs[0, 0]
         ax.scatter(number_of_features, number_of_features_used)
         ylabel = "Number of selected features"
         ax.set(ylabel=ylabel, title=mode + " feature filtering")
-
 
         mode = "classification"
         number_of_features = this_wrapper.results[mode]["number_of_features_tested"]
@@ -175,6 +176,8 @@ class DisjointificationWrapper:
         final_scores = np.multiply(self.final_test_score_classification, np.ones([len(number_of_features), 1]))
         ax.plot(number_of_features, final_scores, label="Eventual score on test set")
         ax.set(ylabel="Score", title=mode + " model improvement")
+        if ylim is not None:
+            ax.set(ylim=ylim)
         ax.legend()
 
         ax = axs[1, 0]
