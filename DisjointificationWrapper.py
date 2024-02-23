@@ -7,9 +7,27 @@ import matplotlib.pyplot as plt
 
 
 class DisjointificationWrapper:
+    """
+    Wrapper class used to take an existing disjointification model and perform repeated addition of top-ranked
+    features (as evaluated by the model) and validate their contribution to predicting the model's labels. The
+    eventual list of features will include only the validated features. Initialization requires either an existing
+    Disjointification model, or a path to an existing one saved via a valid .pkl file. Additionally, any two of the
+    Training ratio, Testing ratio or Validation ratio must be given.
+    """
     def __init__(self, disjointification_model=None, disjointification_model_save_path=None,
                  validation_size_split=None, test_size_split=None, train_size_split=None,
                  initial_num_features=5, max_num_features=500, max_iter=10000, do_set=True):
+        """
+        :param disjointification_model: Disjointification type object for the wrapper to operate on
+        :param disjointification_model_save_path: str or pathlib Path pointing to valid .pkl of disjointification model
+        :param validation_size_split: fractional part (between 0 and 1) of data to be used for validation
+        :param test_size_split: fractional part (between 0 and 1) of data to be used for testing
+        :param train_size_split: fractional part (between 0 and 1) of data to be used for training
+        :param initial_num_features: number of features used at the start of wrapper operation
+        :param max_num_features: maximum number of features to be considered by the wrapper
+        :param max_iter: max_iter parameter passed to the logistic regression model (see skl's LogisticRegressor)
+        :param do_set: if True, automatically runs self.set() after init
+        """
         self.classification_label = None
         self.regression_label = None
         self.disjointification_model = disjointification_model
