@@ -236,7 +236,7 @@ class Disjointification:
         self.description.append(f"regression label: {self.lin_regressor_label}")
         self.description.append(f"classification label: {self.log_regressor_label}")
         self.description.append(f"correlation method regression: {self.regression_correlation_method}")
-        self.description.append(f"correlation method regression: {self.classification_correlation_method}")
+        self.description.append(f"correlation method classification: {self.classification_correlation_method}")
         self.description.append(f"min num of features to keep in disjointification: {self.min_num_features}")
         self.description.append(f"correlation threshold: {self.correlation_threshold}")
         self.description.append(f"last save point: {self.last_save_point_file}")
