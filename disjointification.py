@@ -11,7 +11,7 @@ import pandas as pd
 import scienceplots
 
 plt.style.use(['science', 'notebook'])
-default_datetime_format = "%m_%d_%Y__%H_%M_%S"
+DEFAULT_DATETIME_FORMAT = "%m_%d_%Y__%H_%M_%S"
 
 
 def load_gene_expression_data(data_folder=r"c:\data", labels_file_name=r"sampleinfo_SCANB_t.csv",
@@ -253,7 +253,7 @@ class Disjointification:
         if show:
             self.show()
 
-    def set_model_save_folder(self, root=None, fmt=default_datetime_format):
+    def set_model_save_folder(self, root=None, fmt=DEFAULT_DATETIME_FORMAT):
         this_run_dt = utils.get_dt_in_fmt(fmt=fmt)
         if self.model_save_folder is None:
             if root is None:
