@@ -3,14 +3,25 @@
 ## M.Sc MLDS Project
 Code for performing feature selection by disjointification, as well as benchmarking/testing the resulting selection.
 Data loaded for the experiment is from gean expression data, with loader function implemented and demonstrated.
-Follow the notenooks to track project progress and stages
+Follow the notenooks to track project progress and stages.
+
+### Data & Model
+- The data used in this project is a large gene expression for cancer patients consisting of roughly 3000 samples with 9000 features each, and 2.4 GB in size.
+- A 500-features disjointed model generated is roughly 440MB
+
+### Algorithm description
+The basic algorithm for disjointification:
+- Define a correlation function between any two features
+- Define a correlation function between each feature and the target label
+- Rank the features in descending order by magnitude of correlation with the label
+- Until stopping condition is met, add features, in descending order, but only those that are not mutually correlation above a hyperparameter (The correlation threshold)
 
 ## Known Issues
 - logistic regression cannot work at present without setting a max_iter parameter. This is temporarily addressed by a kwarg with default value 10000.
 
 ## Backlog
 - Rename class Disjointification to e.g. DisjointificationModel and spinoff to separate file DisjointificationModel.py
-- Major refactorization of code to eliminate distinction of regression from classification
+- Major refactoring of code to eliminate distinction of regression from classification
   - replace attributes regression_correlation_method, classification correlation method to a list of functions and/or strings
   - replace number_of_features_tested_log, number_of_features_tested_log with a list of integers
   - replace correlation_ranking_log, correlation_ranking_lin with a list of floats
